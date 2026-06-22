@@ -1,0 +1,1056 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Obolus — Observability for AI Coding-Agent Spend</title>
+  <meta name="description" content="See what each repo, branch, and session actually costs in Claude Code — locally, privately, for free. Zero config: npx obolus scan." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet" />
+  <style>
+    /* ─── Reset & base ─────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      /* Palette — aged-bronze coin */
+      --bg:          #0d0f10;
+      --surface:     #141719;
+      --surface2:    #1c2023;
+      --border:      #2a2f33;
+
+      --teal:        #3ecfb2;   /* verdigris */
+      --teal-dim:    #2a9e89;
+      --teal-glow:   rgba(62,207,178,.12);
+      --gold:        #c9952a;   /* warm bronze/gold */
+      --gold-light:  #e0b44a;
+      --gold-dim:    rgba(201,149,42,.15);
+
+      --text:        #dde2e7;
+      --text-dim:    #7e8b96;
+      --text-muted:  #4a5560;
+
+      --mono:        "JetBrains Mono", "Fira Code", "Cascadia Code", "Courier New", monospace;
+      --serif:       "EB Garamond", Georgia, serif;
+      --sans:        -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+
+      --radius:      8px;
+      --radius-lg:   16px;
+      --max-w:       860px;
+      --section-gap: 96px;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      font-size: 16px;
+      line-height: 1.65;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ─── Typography ───────────────────────────────────────────── */
+    h1, h2, h3 { line-height: 1.2; }
+
+    h2 {
+      font-family: var(--sans);
+      font-size: clamp(1.3rem, 3vw, 1.75rem);
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 1.5rem;
+    }
+
+    h3 {
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--teal);
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      margin-bottom: .5rem;
+    }
+
+    a { color: var(--teal); text-decoration: none; }
+    a:hover { color: var(--teal-dim); text-decoration: underline; }
+    a:focus-visible {
+      outline: 2px solid var(--teal);
+      outline-offset: 3px;
+      border-radius: 3px;
+    }
+
+    /* ─── Layout helpers ────────────────────────────────────────── */
+    .wrap {
+      max-width: var(--max-w);
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    section { padding: var(--section-gap) 0; }
+    section + section { border-top: 1px solid var(--border); }
+
+    /* ─── Coin SVG motif ────────────────────────────────────────── */
+    .coin-mark {
+      display: block;
+      width: 48px;
+      height: 48px;
+      margin-bottom: 20px;
+      opacity: .9;
+    }
+
+    /* ─── NAV ───────────────────────────────────────────────────── */
+    nav {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(13,15,16,.85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .nav-inner {
+      max-width: var(--max-w);
+      margin: 0 auto;
+      padding: 0 24px;
+      height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .nav-logo {
+      font-family: var(--mono);
+      font-size: .95rem;
+      font-weight: 700;
+      color: var(--gold-light);
+      letter-spacing: .04em;
+      text-decoration: none;
+    }
+    .nav-logo:hover { color: var(--gold); text-decoration: none; }
+
+    .nav-links {
+      display: flex;
+      gap: 24px;
+      list-style: none;
+    }
+
+    .nav-links a {
+      font-size: .875rem;
+      color: var(--text-dim);
+      transition: color .15s;
+    }
+    .nav-links a:hover { color: var(--text); text-decoration: none; }
+
+    /* ─── HERO ──────────────────────────────────────────────────── */
+    #hero {
+      padding: 80px 0 72px;
+      border-top: none;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Subtle radial glow behind hero */
+    #hero::before {
+      content: "";
+      position: absolute;
+      top: -80px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 600px;
+      height: 400px;
+      background: radial-gradient(ellipse, rgba(62,207,178,.06) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    .hero-eyebrow {
+      font-family: var(--mono);
+      font-size: .75rem;
+      font-weight: 500;
+      color: var(--teal);
+      text-transform: uppercase;
+      letter-spacing: .12em;
+      margin-bottom: 20px;
+    }
+
+    .hero-heading {
+      font-family: var(--serif);
+      font-size: clamp(2.6rem, 7vw, 4.2rem);
+      font-weight: 400;
+      color: var(--gold-light);
+      letter-spacing: -.01em;
+      margin-bottom: 20px;
+    }
+
+    .hero-sub {
+      font-size: clamp(1rem, 2.5vw, 1.2rem);
+      color: var(--text-dim);
+      max-width: 560px;
+      margin-bottom: 36px;
+      line-height: 1.6;
+    }
+
+    .hero-sub strong {
+      color: var(--text);
+      font-weight: 500;
+    }
+
+    /* Install command chip */
+    .install-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 10px 16px;
+      margin-bottom: 36px;
+      max-width: 100%;
+    }
+
+    .install-cmd {
+      font-family: var(--mono);
+      font-size: .95rem;
+      color: var(--teal);
+      user-select: all;
+      white-space: nowrap;
+    }
+
+    .copy-btn {
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      color: var(--text-muted);
+      font-family: var(--mono);
+      font-size: .72rem;
+      padding: 4px 9px;
+      cursor: pointer;
+      transition: color .15s, border-color .15s;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .copy-btn:hover { color: var(--teal); border-color: var(--teal-dim); }
+    .copy-btn:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
+    .copy-btn.copied { color: var(--teal); border-color: var(--teal); }
+
+    /* CTAs */
+    .cta-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .btn-primary {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--teal);
+      color: #0d0f10;
+      font-weight: 700;
+      font-size: .9rem;
+      padding: 11px 22px;
+      border-radius: var(--radius);
+      border: none;
+      cursor: pointer;
+      transition: background .15s, transform .1s;
+      text-decoration: none;
+    }
+    .btn-primary:hover { background: var(--teal-dim); color: #0d0f10; text-decoration: none; transform: translateY(-1px); }
+    .btn-primary:focus-visible { outline: 2px solid var(--teal); outline-offset: 3px; }
+
+    .btn-secondary {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--text-dim);
+      font-size: .9rem;
+      padding: 11px 0;
+      text-decoration: none;
+      border-bottom: 1px solid transparent;
+      transition: color .15s, border-color .15s;
+    }
+    .btn-secondary:hover { color: var(--text); border-color: var(--border); text-decoration: none; }
+
+    /* Privacy badge */
+    .privacy-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 28px;
+      background: var(--gold-dim);
+      border: 1px solid rgba(201,149,42,.3);
+      border-radius: 20px;
+      padding: 5px 14px;
+      font-size: .8rem;
+      color: var(--gold-light);
+      font-weight: 500;
+    }
+
+    .privacy-badge svg { flex-shrink: 0; }
+
+    /* ─── TERMINAL DEMO ─────────────────────────────────────────── */
+    #demo { background: var(--surface); }
+
+    .terminal-wrap {
+      background: #0a0c0d;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      box-shadow: 0 24px 60px rgba(0,0,0,.45);
+    }
+
+    .terminal-titlebar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 16px;
+      background: var(--surface2);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+    }
+    .dot-red    { background: #e05e5e; }
+    .dot-yellow { background: #e0b44a; }
+    .dot-green  { background: #3ecfb2; }
+
+    .terminal-title {
+      font-family: var(--mono);
+      font-size: .75rem;
+      color: var(--text-muted);
+      margin-left: 4px;
+    }
+
+    .terminal-body {
+      padding: 28px 32px;
+      overflow-x: auto;
+    }
+
+    pre {
+      font-family: var(--mono);
+      font-size: .875rem;
+      line-height: 1.75;
+      color: var(--text);
+      white-space: pre;
+    }
+
+    .t-prompt { color: var(--text-muted); }
+    .t-cmd    { color: var(--teal); }
+    .t-flag   { color: var(--gold-light); }
+    .t-header { color: var(--text-dim); }
+    .t-scope  { color: var(--text-muted); }
+    .t-key    { color: var(--text-dim); }
+    .t-val    { color: var(--text); font-weight: 500; }
+    .t-repo   { color: var(--teal); font-weight: 600; }
+    .t-money  { color: var(--gold-light); font-weight: 600; }
+    .t-muted  { color: var(--text-muted); }
+    .t-branch { color: var(--teal-dim); }
+    .t-hash   { color: var(--text-muted); }
+    .t-label  { color: var(--gold-light); }
+
+    .demo-note {
+      margin-top: 16px;
+      font-size: .8rem;
+      color: var(--text-muted);
+      text-align: center;
+    }
+
+    /* ─── HOW IT WORKS ──────────────────────────────────────────── */
+    .steps {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 32px;
+      margin-top: 12px;
+    }
+
+    .step {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 28px 24px;
+    }
+
+    .step-num {
+      font-family: var(--mono);
+      font-size: .7rem;
+      color: var(--teal);
+      text-transform: uppercase;
+      letter-spacing: .1em;
+      margin-bottom: 10px;
+    }
+
+    .step-title {
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 8px;
+      line-height: 1.35;
+    }
+
+    .step-code {
+      font-family: var(--mono);
+      font-size: .82rem;
+      color: var(--teal);
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      padding: 3px 8px;
+      display: inline-block;
+      margin-bottom: 10px;
+    }
+
+    .step-desc {
+      font-size: .9rem;
+      color: var(--text-dim);
+      line-height: 1.55;
+    }
+
+    /* ─── WHY / DIFFERENTIATORS ─────────────────────────────────── */
+    .diff-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 24px;
+      margin-top: 12px;
+    }
+
+    .diff-card {
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 28px 24px;
+      background: var(--surface);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .diff-card::before {
+      content: "";
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, var(--teal), transparent);
+    }
+
+    .diff-icon {
+      font-size: 1.4rem;
+      margin-bottom: 14px;
+      display: block;
+    }
+
+    .diff-card h3 {
+      text-transform: none;
+      font-size: 1rem;
+      color: var(--text);
+      letter-spacing: 0;
+      margin-bottom: 8px;
+    }
+
+    .diff-card p {
+      font-size: .9rem;
+      color: var(--text-dim);
+      line-height: 1.55;
+    }
+
+    .diff-card p strong { color: var(--text); font-weight: 500; }
+
+    /* ─── ROADMAP ───────────────────────────────────────────────── */
+    #roadmap { background: var(--surface); }
+
+    .roadmap-tag {
+      display: inline-block;
+      font-family: var(--mono);
+      font-size: .7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .09em;
+      padding: 2px 8px;
+      border-radius: 4px;
+      margin-bottom: 10px;
+      background: rgba(201,149,42,.15);
+      color: var(--gold-light);
+      border: 1px solid rgba(201,149,42,.3);
+    }
+
+    .roadmap-note {
+      font-size: .875rem;
+      color: var(--text-muted);
+      margin-bottom: 36px;
+    }
+
+    .roadmap-items {
+      display: grid;
+      gap: 16px;
+    }
+
+    .roadmap-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 16px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px 22px;
+    }
+
+    .roadmap-icon {
+      font-size: 1.25rem;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+
+    .roadmap-item-title {
+      font-size: .95rem;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 4px;
+    }
+
+    .roadmap-item-desc {
+      font-size: .875rem;
+      color: var(--text-dim);
+    }
+
+    /* ─── WAITLIST ──────────────────────────────────────────────── */
+    #waitlist {
+      text-align: center;
+    }
+
+    .waitlist-inner {
+      max-width: 520px;
+      margin: 0 auto;
+    }
+
+    #waitlist p {
+      color: var(--text-dim);
+      margin-bottom: 32px;
+      font-size: 1rem;
+    }
+
+    .wl-form {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .wl-input {
+      flex: 1;
+      min-width: 200px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      font-family: var(--sans);
+      font-size: .9rem;
+      padding: 11px 16px;
+      outline: none;
+      transition: border-color .15s, box-shadow .15s;
+    }
+    .wl-input::placeholder { color: var(--text-muted); }
+    .wl-input:focus {
+      border-color: var(--teal-dim);
+      box-shadow: 0 0 0 3px var(--teal-glow);
+    }
+
+    .wl-submit {
+      background: var(--teal);
+      color: #0d0f10;
+      font-weight: 700;
+      font-size: .9rem;
+      padding: 11px 22px;
+      border: none;
+      border-radius: var(--radius);
+      cursor: pointer;
+      transition: background .15s, transform .1s;
+      white-space: nowrap;
+    }
+    .wl-submit:hover { background: var(--teal-dim); transform: translateY(-1px); }
+    .wl-submit:focus-visible { outline: 2px solid var(--teal); outline-offset: 3px; }
+
+    .wl-note {
+      margin-top: 14px;
+      font-size: .78rem;
+      color: var(--text-muted);
+    }
+
+    /* ─── FOOTER ────────────────────────────────────────────────── */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 36px 0;
+    }
+
+    .footer-inner {
+      max-width: var(--max-w);
+      margin: 0 auto;
+      padding: 0 24px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .footer-copy {
+      font-size: .83rem;
+      color: var(--text-muted);
+    }
+
+    .footer-copy a { color: var(--text-muted); }
+    .footer-copy a:hover { color: var(--teal); }
+
+    .footer-links {
+      display: flex;
+      gap: 20px;
+      list-style: none;
+    }
+
+    .footer-links a {
+      font-size: .83rem;
+      color: var(--text-muted);
+    }
+    .footer-links a:hover { color: var(--teal); text-decoration: none; }
+
+    /* ─── Responsive ────────────────────────────────────────────── */
+    @media (max-width: 600px) {
+      :root { --section-gap: 64px; }
+      .terminal-body { padding: 18px 16px; }
+      pre { font-size: .78rem; }
+      .install-chip { flex-wrap: wrap; }
+      .steps, .diff-grid { grid-template-columns: 1fr; }
+    }
+
+    /* ─── Focus / accessibility ─────────────────────────────────── */
+    :focus-visible {
+      outline: 2px solid var(--teal);
+      outline-offset: 3px;
+    }
+
+    /* Smooth separator between "available now" and roadmap content */
+    .now-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-family: var(--mono);
+      font-size: .7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .09em;
+      padding: 2px 8px;
+      border-radius: 4px;
+      background: rgba(62,207,178,.12);
+      color: var(--teal);
+      border: 1px solid rgba(62,207,178,.3);
+      margin-bottom: 10px;
+    }
+
+    .section-label {
+      font-family: var(--mono);
+      font-size: .72rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: .1em;
+      margin-bottom: 14px;
+    }
+
+  </style>
+</head>
+
+<body>
+
+  <!-- ── NAV ───────────────────────────────────────────────────── -->
+  <nav aria-label="Site navigation">
+    <div class="nav-inner">
+      <a href="#" class="nav-logo" aria-label="Obolus home">⬡ obolus</a>
+      <ul class="nav-links" role="list">
+        <li><a href="#how">How it works</a></li>
+        <li><a href="#why">Why</a></li>
+        <li><a href="#roadmap">Roadmap</a></li>
+        <li><a href="#waitlist">Waitlist</a></li>
+        <li><a href="https://github.com/obolus/obolus" aria-label="GitHub repository">GitHub ↗</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <main>
+
+    <!-- ── HERO ──────────────────────────────────────────────────── -->
+    <section id="hero" aria-labelledby="hero-heading">
+      <div class="wrap">
+
+        <!-- Coin SVG -->
+        <svg class="coin-mark" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
+          <circle cx="24" cy="24" r="22" fill="none" stroke="#c9952a" stroke-width="1.5" opacity=".6"/>
+          <circle cx="24" cy="24" r="17" fill="none" stroke="#c9952a" stroke-width="1" opacity=".35"/>
+          <circle cx="24" cy="24" r="12" fill="none" stroke="#3ecfb2" stroke-width="1" opacity=".5"/>
+          <text x="24" y="29" text-anchor="middle" font-family="Georgia,serif" font-size="13" fill="#c9952a" opacity=".8">ο</text>
+        </svg>
+
+        <p class="hero-eyebrow">Open Source · MIT · v0</p>
+
+        <h1 class="hero-heading" id="hero-heading">Obolus</h1>
+
+        <p class="hero-sub">
+          <strong>Observability for AI coding-agent spend.</strong><br/>
+          See what each repo, branch, and session <em>actually</em> costs in Claude Code —
+          without sending your code or prompts anywhere.
+        </p>
+
+        <!-- Install chip -->
+        <div class="install-chip" role="group" aria-label="Install command">
+          <span class="install-cmd" aria-label="npx obolus scan">$ npx obolus scan</span>
+          <button class="copy-btn" id="copy-btn" aria-label="Copy install command" type="button">copy</button>
+        </div>
+
+        <div class="cta-row">
+          <a href="#waitlist" class="btn-primary">
+            Join the waitlist
+          </a>
+          <a href="https://github.com/obolus/obolus" class="btn-secondary" target="_blank" rel="noopener noreferrer">
+            View on GitHub ↗
+          </a>
+        </div>
+
+        <!-- Privacy promise badge -->
+        <div>
+          <span class="privacy-badge" role="note" aria-label="Privacy guarantee">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+              <path d="M7 1L2 3.5v4C2 10.4 4.3 12.8 7 13c2.7-.2 5-2.6 5-5.5v-4L7 1z" stroke="#e0b44a" stroke-width="1.2" fill="none"/>
+              <path d="M4.5 7l1.5 1.5 3-3" stroke="#e0b44a" stroke-width="1.2" stroke-linecap="round"/>
+            </svg>
+            Metadata only — never your code or prompts · Runs fully offline · Free &amp; open source
+          </span>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ── TERMINAL DEMO ──────────────────────────────────────────── -->
+    <section id="demo" aria-labelledby="demo-heading">
+      <div class="wrap">
+        <p class="section-label">Example output</p>
+        <h2 id="demo-heading">Your spend, attributed — in seconds</h2>
+
+        <div class="terminal-wrap" role="img" aria-label="Terminal showing Obolus scan output: 472 runs, 130.4M tokens, estimated cost $256.92 broken down by repo and top sessions">
+          <div class="terminal-titlebar" aria-hidden="true">
+            <span class="dot dot-red"></span>
+            <span class="dot dot-yellow"></span>
+            <span class="dot dot-green"></span>
+            <span class="terminal-title">zsh — obolus scan</span>
+          </div>
+          <div class="terminal-body">
+            <pre><span class="t-prompt">$ </span><span class="t-cmd">npx obolus scan</span> <span class="t-flag">--since 7d</span>
+
+<span class="t-label">Obolus</span> <span class="t-header">— local AI coding-agent spend (Claude Code)</span>
+  <span class="t-scope">scope: since 2026-06-15</span>
+
+  <span class="t-key">Runs</span>  <span class="t-val">472</span>   <span class="t-key">Tokens</span>  <span class="t-val">130.4M</span>   <span class="t-key">Est. cost</span>  <span class="t-money">$256.92</span>
+
+<span class="t-key">By repo:</span>
+  <span class="t-repo">aporyn        </span><span class="t-money">$232.65</span>   <span class="t-val">121.6M</span>   <span class="t-muted">405 runs</span>
+  <span class="t-repo">obolus        </span><span class="t-money"> $24.27</span>   <span class="t-val">  8.9M</span>   <span class="t-muted"> 67 runs</span>
+
+<span class="t-key">Top sessions by cost:</span>
+  <span class="t-branch">aporyn/main</span>  <span class="t-money">$171.26</span>  <span class="t-val">87.4M</span>  <span class="t-muted">245r</span>  <span class="t-muted">2026-06-17</span>  <span class="t-hash">2f4a45b0</span></pre>
+          </div>
+        </div>
+
+        <p class="demo-note">Example output. Costs are local estimates computed from token counts × current public rates — not your actual bill.</p>
+      </div>
+    </section>
+
+    <!-- ── HOW IT WORKS ───────────────────────────────────────────── -->
+    <section id="how" aria-labelledby="how-heading">
+      <div class="wrap">
+        <p class="section-label">How it works</p>
+        <h2 id="how-heading">Zero config. Three steps.</h2>
+
+        <div class="steps">
+          <article class="step">
+            <p class="step-num">Step 01</p>
+            <p class="step-title">Run one command</p>
+            <code class="step-code">npx obolus scan</code>
+            <p class="step-desc">
+              No install, no API key, no configuration file. Just run it in any terminal.
+              Supports a <code style="font-family:var(--mono);font-size:.82rem;color:var(--teal)">--since</code> flag
+              (<code style="font-family:var(--mono);font-size:.82rem;color:var(--teal)">7d</code>, <code style="font-family:var(--mono);font-size:.82rem;color:var(--teal)">30d</code>, …)
+              to scope the time window.
+            </p>
+          </article>
+
+          <article class="step">
+            <p class="step-num">Step 02</p>
+            <p class="step-title">Reads local history — metadata only</p>
+            <p class="step-desc">
+              Obolus reads the Claude Code session history already on your disk.
+              It extracts <strong>token counts, model, repo, branch, and timestamps</strong> only.
+              Your code and prompts never leave your machine.
+            </p>
+          </article>
+
+          <article class="step">
+            <p class="step-num">Step 03</p>
+            <p class="step-title">See attributed spend</p>
+            <p class="step-desc">
+              Get a breakdown by <strong>repo, model, branch, and session</strong>,
+              with cross-run history and a top-sessions ranking that the native
+              <code style="font-family:var(--mono);font-size:.82rem;color:var(--teal)">/usage</code> command cannot give you.
+            </p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── WHY / DIFFERENTIATORS ──────────────────────────────────── -->
+    <section id="why" aria-labelledby="why-heading">
+      <div class="wrap">
+        <p class="section-label">Why Obolus</p>
+        <h2 id="why-heading">What makes it different</h2>
+
+        <div class="diff-grid">
+
+          <article class="diff-card">
+            <span class="diff-icon" aria-hidden="true">🔒</span>
+            <h3>Privacy-first, offline</h3>
+            <p>
+              <strong>Metadata only — never your code or prompts.</strong>
+              Runs fully offline against local files. Nothing is sent to any server.
+              Open source so you can verify it yourself.
+            </p>
+          </article>
+
+          <article class="diff-card">
+            <span class="diff-icon" aria-hidden="true">📊</span>
+            <h3>Beats native <code style="font-family:var(--mono);font-size:.85rem">/usage</code></h3>
+            <p>
+              Claude Code's built-in <code style="font-family:var(--mono);font-size:.85rem">/usage</code> only covers your own machine, with no per-repo breakdown.
+              Obolus adds <strong>cross-repo, per-branch and per-session attribution with persistent history</strong>
+              — the full picture.
+            </p>
+          </article>
+
+          <article class="diff-card">
+            <span class="diff-icon" aria-hidden="true">🌐</span>
+            <h3>Cross-vendor by design</h3>
+            <p>
+              Built around a vendor-neutral schema from day one.
+              Claude Code is supported now; <strong>Cursor and Codex importers are on the roadmap</strong> —
+              so your spend history survives every tool switch.
+            </p>
+          </article>
+
+          <article class="diff-card">
+            <span class="diff-icon" aria-hidden="true">⚡</span>
+            <h3>Zero friction</h3>
+            <p>
+              No account, no daemon, no Claude API key.
+              One command and you see results. Free and MIT-licensed — use it however you want.
+            </p>
+          </article>
+
+        </div>
+
+        <!-- The name story -->
+        <aside style="
+          margin-top: 48px;
+          border-left: 2px solid var(--gold);
+          padding: 20px 24px;
+          background: var(--gold-dim);
+          border-radius: 0 var(--radius) var(--radius) 0;
+        " aria-label="About the name Obolus">
+          <p style="font-family:var(--serif);font-size:1.05rem;color:var(--gold-light);line-height:1.65;font-style:italic;">
+            An obol was the small coin the ancient Greeks placed under the tongue to pay Charon,
+            the ferryman across the Styx. Obolus watches the small coins your agents spend
+            before they add up to a fare you never meant to pay.
+          </p>
+        </aside>
+
+      </div>
+    </section>
+
+    <!-- ── ROADMAP ─────────────────────────────────────────────────── -->
+    <section id="roadmap" aria-labelledby="roadmap-heading">
+      <div class="wrap">
+        <p class="section-label">What's next</p>
+        <h2 id="roadmap-heading">Roadmap</h2>
+        <p class="roadmap-note">
+          The items below are planned but <strong>not yet available</strong>.
+          Everything above this section is real and works today.
+        </p>
+
+        <div class="roadmap-items">
+
+          <div class="roadmap-item">
+            <span class="roadmap-icon" aria-hidden="true">📡</span>
+            <div>
+              <span class="roadmap-tag" aria-label="Status: Coming">Coming</span>
+              <p class="roadmap-item-title">Live OTel collector</p>
+              <p class="roadmap-item-desc">Real-time per-run cost summary in your terminal as the agent runs, via an OpenTelemetry sidecar.</p>
+            </div>
+          </div>
+
+          <div class="roadmap-item">
+            <span class="roadmap-icon" aria-hidden="true">🤖</span>
+            <div>
+              <span class="roadmap-tag" aria-label="Status: Coming">Coming</span>
+              <p class="roadmap-item-title">GitHub App — per-PR cost comments</p>
+              <p class="roadmap-item-desc">Automatically posts an estimated AI spend breakdown as a comment on every pull request.</p>
+            </div>
+          </div>
+
+          <div class="roadmap-item">
+            <span class="roadmap-icon" aria-hidden="true">📈</span>
+            <div>
+              <span class="roadmap-tag" aria-label="Status: Planned (paid tier)">Planned · open-core paid tier</span>
+              <p class="roadmap-item-title">Team web dashboard</p>
+              <p class="roadmap-item-desc">Cross-developer rollups, trend charts, and budget alerts for engineering teams. The paid layer; the CLI stays free forever.</p>
+            </div>
+          </div>
+
+          <div class="roadmap-item">
+            <span class="roadmap-icon" aria-hidden="true">🔌</span>
+            <div>
+              <span class="roadmap-tag" aria-label="Status: Planned">Planned</span>
+              <p class="roadmap-item-title">Cursor &amp; Codex importers</p>
+              <p class="roadmap-item-desc">Ingest spend data from Cursor and OpenAI Codex to unify your cross-tool agent history in one place.</p>
+            </div>
+          </div>
+
+          <div class="roadmap-item">
+            <span class="roadmap-icon" aria-hidden="true">🔔</span>
+            <div>
+              <span class="roadmap-tag" aria-label="Status: Planned">Planned</span>
+              <p class="roadmap-item-title">Spend alerts</p>
+              <p class="roadmap-item-desc">Configurable thresholds that warn you when a session or repo exceeds a cost budget.</p>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- ── WAITLIST ────────────────────────────────────────────────── -->
+    <section id="waitlist" aria-labelledby="waitlist-heading">
+      <div class="wrap">
+        <div class="waitlist-inner">
+
+          <!-- Coin motif (smaller) -->
+          <svg viewBox="0 0 32 32" width="40" height="40" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" style="margin:0 auto 20px;display:block;opacity:.8">
+            <circle cx="16" cy="16" r="14" fill="none" stroke="#c9952a" stroke-width="1.2"/>
+            <circle cx="16" cy="16" r="9" fill="none" stroke="#3ecfb2" stroke-width=".8" opacity=".6"/>
+          </svg>
+
+          <h2 id="waitlist-heading" style="text-align:center;">Stay in the loop</h2>
+          <p>
+            Obolus is in active development. Drop your email and we'll reach out
+            when the GitHub App, dashboard, and new importers are ready —
+            no noise, no marketing cadence.
+          </p>
+
+          <!-- Placeholder form — not yet wired up -->
+          <form
+            class="wl-form"
+            action="#"
+            method="post"
+            aria-label="Waitlist signup form"
+            onsubmit="handleWlSubmit(event)"
+          >
+            <label for="wl-email" class="sr-only" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;">Email address</label>
+            <input
+              id="wl-email"
+              class="wl-input"
+              type="email"
+              name="email"
+              placeholder="you@example.com"
+              required
+              autocomplete="email"
+              aria-required="true"
+            />
+            <button type="submit" class="wl-submit">Join waitlist</button>
+          </form>
+
+          <p class="wl-note" id="wl-status" aria-live="polite">
+            (waitlist form — not yet wired up to a backend)
+          </p>
+
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ── FOOTER ──────────────────────────────────────────────────── -->
+  <footer>
+    <div class="footer-inner">
+      <p class="footer-copy">
+        <strong style="color:var(--text-dim);">Obolus</strong> —
+        an <a href="https://aporyn.com" target="_blank" rel="noopener noreferrer">Aporyn</a> venture ·
+        <a href="https://github.com/obolus/obolus/blob/main/LICENSE" target="_blank" rel="noopener noreferrer">MIT licensed</a>
+      </p>
+      <ul class="footer-links" role="list">
+        <li><a href="https://github.com/obolus/obolus" target="_blank" rel="noopener noreferrer">GitHub ↗</a></li>
+        <li><a href="#waitlist">Waitlist</a></li>
+      </ul>
+    </div>
+  </footer>
+
+  <!-- ── MINIMAL VANILLA JS ──────────────────────────────────────── -->
+  <script>
+    // Copy-button for install command
+    (function () {
+      var btn = document.getElementById('copy-btn');
+      if (!btn) return;
+      btn.addEventListener('click', function () {
+        var cmd = 'npx obolus scan';
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(cmd).then(function () {
+            btn.textContent = 'copied!';
+            btn.classList.add('copied');
+            btn.setAttribute('aria-label', 'Copied!');
+            setTimeout(function () {
+              btn.textContent = 'copy';
+              btn.classList.remove('copied');
+              btn.setAttribute('aria-label', 'Copy install command');
+            }, 2000);
+          }).catch(function () {
+            fallbackCopy(cmd);
+          });
+        } else {
+          fallbackCopy(cmd);
+        }
+      });
+
+      function fallbackCopy(text) {
+        var ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        try { document.execCommand('copy'); } catch (e) {}
+        document.body.removeChild(ta);
+        btn.textContent = 'copied!';
+        btn.classList.add('copied');
+        setTimeout(function () {
+          btn.textContent = 'copy';
+          btn.classList.remove('copied');
+        }, 2000);
+      }
+    }());
+
+    // Waitlist form placeholder handler
+    function handleWlSubmit(e) {
+      e.preventDefault();
+      var status = document.getElementById('wl-status');
+      if (status) {
+        status.textContent = 'Thanks! We’ll be in touch when it’s ready. (Note: form is not yet connected to a backend — your email was not stored.)';
+        status.style.color = 'var(--teal)';
+      }
+    }
+  </script>
+
+</body>
+</html>
