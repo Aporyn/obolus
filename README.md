@@ -17,6 +17,7 @@ Code. See the **Roadmap** below for the plan.
 - Breaks spend down by **repo / model / branch / day / week / session**, plus **main vs subagent** and a **cost composition** (input / output / cache)
 - Time window (`--since` / `--until`), **top sessions** and **most-expensive runs** — cross-run history `/usage` can't give you
 - **Live `watch` mode** — stream each run's cost as it happens, tagged with the **commit** checked out at run time
+- **Local dashboard** — `obolus serve` opens a private `localhost` web view (charts, breakdowns, live feed); nothing leaves your machine
 - **Metadata only** — token counts and cost, never your code or prompts. Runs fully offline.
 
 ## Install
@@ -52,6 +53,17 @@ obolus watch
 Tails active Claude Code sessions and prints each run's cost the moment it happens — stamped with
 the **commit** checked out at run time, which the history scan can't see. Records append to
 `~/.obolus/live-ledger.jsonl` (metadata only). Ctrl+C to stop.
+
+## Dashboard
+
+```sh
+obolus serve          # then open http://localhost:4317
+obolus serve --open   # opens your browser automatically
+```
+
+A local web dashboard, bound to `127.0.0.1` — it never leaves your machine. Per repo / model /
+branch / day breakdowns, cost composition, top sessions, and a live feed that updates as you work.
+`--port <n>` changes the port.
 
 Cost is an estimate computed from token counts × current public rates — not your actual bill.
 

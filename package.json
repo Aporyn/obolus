@@ -1,6 +1,6 @@
 {
   "name": "obolus",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Observability for AI coding-agent spend — see what each PR, repo, and developer actually costs.",
   "type": "module",
   "license": "MIT",
@@ -34,7 +34,7 @@
     "node": ">=18"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "node scripts/embed-dashboard.mjs && tsc -p tsconfig.json",
     "dev": "tsx src/index.ts",
     "test": "vitest run",
     "test:watch": "vitest",

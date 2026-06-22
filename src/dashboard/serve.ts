@@ -1,0 +1,117 @@
+import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
+import { execFile } from 'node:child_process';
+import { scanTranscripts } from '../collector/transcript-scanner.js';
+import { claudeProjectsDir } from '../collector/paths.js';
+import { tailRuns } from '../collector/tailer.js';
+import { ANTHROPIC_PRICING } from '../pricing/pricing-table.js';
+import { summarize } from '../report/aggregate.js';
+import { DASHBOARD_HTML } from './html.js';
+
+const DEFAULT_PORT = 4317;
+
+export interface ServeOptions {
+  readonly port?: number;
+  readonly open?: boolean;
+  readonly root?: string;
+}
+
+function openBrowser(url: string): void {
+  const command =
+    process.platform === 'darwin' ? 'open' : process.platform === 'win32' ? 'explorer' : 'xdg-open';
+  try {
+    execFile(command, [url], () => {
+      /* best-effort; ignore failures */
+    });
+  } catch {
+    /* ignore */
+  }
+}
+
+async function sendSummary(res: ServerResponse, root: string): Promise<void> {
+  try {
+    const events = await scanTranscripts(root);
+    const summary = summarize(events, ANTHROPIC_PRICING);
+    res.writeHead(200, { 'content-type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify(summary));
+  } catch (err) {
+    res.writeHead(500, { 'content-type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify({ error: err instanceof Error ? err.message : String(err) }));
+  }
+}
+
+function sendEvents(req: IncomingMessage, res: ServerResponse, root: string): void {
+  res.writeHead(200, {
+    'content-type': 'text/event-stream; charset=utf-8',
+    'cache-control': 'no-cache',
+    connection: 'keep-alive',
+  });
+  res.write(': connected\n\n');
+
+  let runningUsd = 0;
+  let runningRuns = 0;
+  let closed = false;
+  req.on('close', () => {
+    closed = true;
+  });
+
+  void tailRuns(
+    root,
+    (run) => {
+      runningUsd += run.cost.totalUsd;
+      runningRuns += 1;
+      const payload = {
+        repo: run.event.repo,
+        branch: run.event.branch,
+        commit: run.commit,
+        model: run.event.model,
+        costUsd: run.cost.totalUsd,
+        tokens: run.tokens,
+        timestamp: run.event.timestamp,
+        isSidechain: run.event.isSidechain,
+        runningUsd,
+        runningRuns,
+      };
+      res.write(`data: ${JSON.stringify(payload)}\n\n`);
+    },
+    () => closed,
+  );
+}
+
+/** Build the local dashboard HTTP server (not yet listening). */
+export function createDashboardServer(root: string = claudeProjectsDir()): Server {
+  return createServer((req, res) => {
+    const url = req.url ?? '/';
+    if (url === '/' || url.startsWith('/index')) {
+      res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+      res.end(DASHBOARD_HTML);
+      return;
+    }
+    if (url.startsWith('/api/summary')) {
+      void sendSummary(res, root);
+      return;
+    }
+    if (url.startsWith('/api/events')) {
+      sendEvents(req, res, root);
+      return;
+    }
+    res.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' });
+    res.end('not found');
+  });
+}
+
+/** Start the local-only dashboard server. Binds to 127.0.0.1 — data never leaves the machine. */
+export async function runServe(opts: ServeOptions = {}): Promise<void> {
+  const root = opts.root ?? claudeProjectsDir();
+  const port = opts.port ?? DEFAULT_PORT;
+  const server = createDashboardServer(root);
+  await new Promise<void>((resolve, reject) => {
+    server.once('error', reject);
+    server.listen(port, '127.0.0.1', resolve);
+  });
+  const address = server.address();
+  const boundPort = address && typeof address === 'object' ? address.port : port;
+  const url = `http://localhost:${boundPort}`;
+  console.log(`Obolus dashboard — ${url}`);
+  console.log('Local only (127.0.0.1) · metadata stays on this machine · Ctrl+C to stop');
+  if (opts.open) openBrowser(url);
+}

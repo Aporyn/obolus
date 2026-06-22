@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { takeCompleteLines } from '../src/collector/watch.js';
+import { takeCompleteLines } from '../src/collector/tailer.js';
 import { currentCommit } from '../src/collector/git.js';
 
 describe('takeCompleteLines', () => {

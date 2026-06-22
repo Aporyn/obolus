@@ -1,5 +1,6 @@
 import { scanTranscripts } from './collector/transcript-scanner.js';
 import { runWatch } from './collector/watch.js';
+import { runServe } from './dashboard/serve.js';
 import { writeLedger } from './ledger/ledger.js';
 import { ANTHROPIC_PRICING } from './pricing/pricing-table.js';
 import { summarize } from './report/aggregate.js';
@@ -89,12 +90,37 @@ function parseScanArgs(argv: readonly string[]): ScanArgs {
   return args;
 }
 
+interface ServeArgs {
+  port?: number;
+  open: boolean;
+}
+
+function parseServeArgs(argv: readonly string[]): ServeArgs {
+  const args: ServeArgs = { open: false };
+  for (let i = 0; i < argv.length; i += 1) {
+    const token = argv[i];
+    if (!token || !token.startsWith('--')) continue;
+    const eq = token.indexOf('=');
+    const flag = eq >= 0 ? token.slice(0, eq) : token;
+    const inline = eq >= 0 ? token.slice(eq + 1) : null;
+    if (flag === '--port') {
+      const n = Number(inline ?? argv[i + 1] ?? '');
+      if (inline === null) i += 1;
+      if (Number.isFinite(n) && n > 0) args.port = Math.floor(n);
+    } else if (flag === '--open') {
+      args.open = true;
+    }
+  }
+  return args;
+}
+
 function printHelp(): void {
   console.log(`obolus — observability for AI coding-agent spend
 
 Usage:
   obolus scan [options]   Scan local Claude Code history; show attributed spend
   obolus watch            Live-monitor spend as runs happen, stamped with commit (Ctrl+C to stop)
+  obolus serve [options]  Local web dashboard at http://localhost:4317, updates live (Ctrl+C to stop)
   obolus help             Show this help
 
 Scan options:
@@ -106,6 +132,10 @@ Scan options:
   --by <dimension>             group by: repo | model | branch | day | week | kind (default: repo)
   --top <n>                    rows per section (default 12)
   --json                       machine-readable output
+
+Serve options:
+  --port <n>                   local dashboard port (default 4317)
+  --open                       open the dashboard in your browser
 
 Notes:
   "kind" = main thread vs subagent (sidechain) runs.
@@ -183,6 +213,9 @@ export async function runCli(argv: readonly string[]): Promise<void> {
       return;
     case 'watch':
       await runWatch();
+      return;
+    case 'serve':
+      await runServe(parseServeArgs(argv.slice(1)));
       return;
     case 'help':
     case '--help':
