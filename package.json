@@ -1,17 +1,17 @@
 {
   "name": "obolus",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Observability for AI coding-agent spend — see what each PR, repo, and developer actually costs.",
   "type": "module",
   "license": "MIT",
   "author": "Aporyn",
-  "homepage": "https://obolus.dev",
+  "homepage": "https://github.com/Aporyn/obolus#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/obolus/obolus.git"
+    "url": "git+https://github.com/Aporyn/obolus.git"
   },
   "bugs": {
-    "url": "https://github.com/obolus/obolus/issues"
+    "url": "https://github.com/Aporyn/obolus/issues"
   },
   "keywords": [
     "ai",
