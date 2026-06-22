@@ -39,6 +39,8 @@ export interface RunEvent {
   readonly timestamp: string;
   /** Source tool version (e.g. Claude Code version), for auditability. */
   readonly toolVersion: string | null;
+  /** True when this run was a subagent / sidechain turn rather than the main thread. */
+  readonly isSidechain: boolean;
 }
 
 /** Per-model rates, expressed in USD per 1,000,000 tokens. */

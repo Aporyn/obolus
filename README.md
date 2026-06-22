@@ -14,8 +14,8 @@ Code. See the **Roadmap** below for the plan.
 ## What it does (v0)
 
 - Reads your **local Claude Code session history** — zero config, nothing to enable, no API key
-- Attributes spend across **all your repos**, broken down by **repo / model / branch / session**
-- Time window (`--since 7d`) and a **top-sessions** ranking — cross-run history `/usage` can't give you
+- Breaks spend down by **repo / model / branch / day / week / session**, plus **main vs subagent** and a **cost composition** (input / output / cache)
+- Time window (`--since` / `--until`), **top sessions** and **most-expensive runs** — cross-run history `/usage` can't give you
 - **Metadata only** — token counts and cost, never your code or prompts. Runs fully offline.
 
 ## Install
@@ -31,10 +31,16 @@ That's it — one command, no setup. (For development: clone, then `pnpm install
 ```sh
 obolus scan                            # all history, grouped by repo
 obolus scan --since 7d                 # only the last 7 days
+obolus scan --by day                   # daily spend trend
+obolus scan --by kind                  # main thread vs subagent (sidechain)
 obolus scan --repo myapp --by branch   # one repo, broken down by branch
+obolus scan --model claude-opus-4-8    # only one model
+obolus scan --since 30d --until 7d     # a specific window
 obolus scan --top 20                   # show more rows per section
 obolus scan --json                     # machine-readable output
 ```
+
+Dimensions for `--by`: `repo` · `model` · `branch` · `day` · `week` · `kind`.
 
 Cost is an estimate computed from token counts × current public rates — not your actual bill.
 

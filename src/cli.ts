@@ -8,18 +8,37 @@ import { renderSummary, type GroupDimension } from './report/terminal.js';
 
 interface ScanArgs {
   since: string | null;
+  until: string | null;
   repo: string | null;
+  branch: string | null;
+  model: string | null;
   by: GroupDimension;
   top: number;
   json: boolean;
 }
 
 function isDimension(value: string): value is GroupDimension {
-  return value === 'repo' || value === 'model' || value === 'branch';
+  return (
+    value === 'repo' ||
+    value === 'model' ||
+    value === 'branch' ||
+    value === 'day' ||
+    value === 'week' ||
+    value === 'kind'
+  );
 }
 
 function parseScanArgs(argv: readonly string[]): ScanArgs {
-  const args: ScanArgs = { since: null, repo: null, by: 'repo', top: 12, json: false };
+  const args: ScanArgs = {
+    since: null,
+    until: null,
+    repo: null,
+    branch: null,
+    model: null,
+    by: 'repo',
+    top: 12,
+    json: false,
+  };
   for (let i = 0; i < argv.length; i += 1) {
     const token = argv[i];
     if (!token || !token.startsWith('--')) continue;
@@ -37,8 +56,17 @@ function parseScanArgs(argv: readonly string[]): ScanArgs {
       case '--since':
         args.since = takeValue();
         break;
+      case '--until':
+        args.until = takeValue();
+        break;
       case '--repo':
         args.repo = takeValue();
+        break;
+      case '--branch':
+        args.branch = takeValue();
+        break;
+      case '--model':
+        args.model = takeValue();
         break;
       case '--by': {
         const value = takeValue();
@@ -69,14 +97,27 @@ Usage:
 
 Scan options:
   --since <7d|30d|YYYY-MM-DD>   only runs since then
+  --until <7d|YYYY-MM-DD>       only runs up to then
   --repo <name>                only this repo (basename)
-  --by <repo|model|branch>     primary grouping (default: repo)
+  --branch <name>              only this branch
+  --model <id>                 only this model
+  --by <dimension>             group by: repo | model | branch | day | week | kind (default: repo)
   --top <n>                    rows per section (default 12)
   --json                       machine-readable output
 
 Notes:
+  "kind" = main thread vs subagent (sidechain) runs.
   Reads metadata only (tokens, model, repo, branch, time). Never reads your code
   or prompts. Cost is an estimate computed from a local rate table.`);
+}
+
+function resolveCutoff(label: string, raw: string | null): string | null {
+  if (!raw) return null;
+  const iso = parseSince(raw);
+  if (!iso) {
+    console.error(`obolus: could not parse ${label} "${raw}" (try 7d, 30d, or 2026-06-01); ignoring.`);
+  }
+  return iso;
 }
 
 async function runScan(rawArgs: readonly string[]): Promise<void> {
@@ -86,28 +127,43 @@ async function runScan(rawArgs: readonly string[]): Promise<void> {
   // The ledger always records the full history; the report applies the view filters.
   const fullSummary = summarize(events, ANTHROPIC_PRICING);
 
-  let sinceIso: string | null = null;
-  if (args.since) {
-    sinceIso = parseSince(args.since);
-    if (!sinceIso) {
-      console.error(
-        `obolus: could not parse --since "${args.since}" (try 7d, 30d, or 2026-06-01); ignoring.`,
-      );
-    }
-  }
+  const sinceIso = resolveCutoff('--since', args.since);
+  const untilIso = resolveCutoff('--until', args.until);
 
-  const view = filterEvents(events, { since: sinceIso, repo: args.repo });
+  const view = filterEvents(events, {
+    since: sinceIso,
+    until: untilIso,
+    repo: args.repo,
+    branch: args.branch,
+    model: args.model,
+  });
   const summary = summarize(view, ANTHROPIC_PRICING);
 
   if (args.json) {
-    console.log(JSON.stringify({ since: sinceIso, repo: args.repo, summary }, null, 2));
+    console.log(
+      JSON.stringify(
+        {
+          since: sinceIso,
+          until: untilIso,
+          repo: args.repo,
+          branch: args.branch,
+          model: args.model,
+          summary,
+        },
+        null,
+        2,
+      ),
+    );
   } else {
     console.log(
       renderSummary(summary, ANTHROPIC_PRICING, {
         by: args.by,
         top: args.top,
         since: sinceIso,
+        until: untilIso,
         repo: args.repo,
+        branch: args.branch,
+        model: args.model,
       }),
     );
   }

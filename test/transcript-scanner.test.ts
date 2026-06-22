@@ -21,6 +21,7 @@ describe('scanTranscripts', () => {
         requestId: 'r1',
         timestamp: '2026-01-01T00:00:00Z',
         version: '2.1.170',
+        isSidechain: true,
         message: {
           model: 'claude-opus-4-8',
           usage: {
@@ -53,6 +54,7 @@ describe('scanTranscripts', () => {
     expect(e?.usage.outputTokens).toBe(50);
     expect(e?.usage.cacheReadTokens).toBe(10);
     expect(e?.usage.cacheWrite5mTokens).toBe(20);
+    expect(e?.isSidechain).toBe(true);
   });
 
   it('treats detached HEAD as no branch', async () => {

@@ -21,6 +21,7 @@ function ev(over: Partial<RunEvent>): RunEvent {
     requestId: null,
     timestamp: '2026-06-10T00:00:00Z',
     toolVersion: null,
+    isSidechain: false,
     ...over,
   };
 }
@@ -38,11 +39,21 @@ describe('filterEvents', () => {
     expect(kept[0]?.timestamp).toBe('2026-06-20T00:00:00Z');
   });
 
-  it('filters by repo', () => {
-    const events = [ev({ repo: 'a' }), ev({ repo: 'b' })];
-    const kept = filterEvents(events, { repo: 'b' });
+  it('keeps only runs at or before the until cutoff', () => {
+    const events = [ev({ timestamp: '2026-06-01T00:00:00Z' }), ev({ timestamp: '2026-06-20T00:00:00Z' })];
+    const kept = filterEvents(events, { until: '2026-06-15T00:00:00Z' });
     expect(kept).toHaveLength(1);
-    expect(kept[0]?.repo).toBe('b');
+    expect(kept[0]?.timestamp).toBe('2026-06-01T00:00:00Z');
+  });
+
+  it('filters by repo, branch, and model', () => {
+    const events = [
+      ev({ repo: 'a', branch: 'main', model: 'opus' }),
+      ev({ repo: 'b', branch: 'dev', model: 'sonnet' }),
+    ];
+    expect(filterEvents(events, { repo: 'b' })[0]?.repo).toBe('b');
+    expect(filterEvents(events, { branch: 'main' })[0]?.repo).toBe('a');
+    expect(filterEvents(events, { model: 'sonnet' })[0]?.repo).toBe('b');
   });
 
   it('drops runs with no timestamp when a since cutoff is set', () => {

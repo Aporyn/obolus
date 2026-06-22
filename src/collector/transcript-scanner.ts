@@ -26,6 +26,7 @@ interface RawLine {
   requestId?: string;
   timestamp?: string;
   version?: string;
+  isSidechain?: boolean;
   message?: { model?: string; usage?: RawUsage };
 }
 
@@ -84,6 +85,7 @@ function lineToEvent(raw: RawLine): RunEvent | null {
     requestId: raw.requestId ?? null,
     timestamp: raw.timestamp ?? '',
     toolVersion: raw.version ?? null,
+    isSidechain: raw.isSidechain ?? false,
   };
 }
 
