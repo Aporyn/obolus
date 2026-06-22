@@ -1,4 +1,5 @@
 import { scanTranscripts } from './collector/transcript-scanner.js';
+import { runWatch } from './collector/watch.js';
 import { writeLedger } from './ledger/ledger.js';
 import { ANTHROPIC_PRICING } from './pricing/pricing-table.js';
 import { summarize } from './report/aggregate.js';
@@ -93,6 +94,7 @@ function printHelp(): void {
 
 Usage:
   obolus scan [options]   Scan local Claude Code history; show attributed spend
+  obolus watch            Live-monitor spend as runs happen, stamped with commit (Ctrl+C to stop)
   obolus help             Show this help
 
 Scan options:
@@ -178,6 +180,9 @@ export async function runCli(argv: readonly string[]): Promise<void> {
   switch (command) {
     case 'scan':
       await runScan(argv.slice(1));
+      return;
+    case 'watch':
+      await runWatch();
       return;
     case 'help':
     case '--help':

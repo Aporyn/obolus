@@ -89,22 +89,31 @@ function lineToEvent(raw: RawLine): RunEvent | null {
   };
 }
 
+/**
+ * Parse a single transcript line into a run event, or null if it is not a
+ * billable assistant run. Reads metadata only. Shared by the scanner and the
+ * live watcher.
+ */
+export function parseRunLine(line: string): RunEvent | null {
+  // Cheap pre-filter: skip lines that cannot be assistant runs (e.g. large
+  // attachment lines) without paying for a full JSON.parse.
+  if (!line || !line.includes('"assistant"')) return null;
+  let raw: RawLine;
+  try {
+    raw = JSON.parse(line) as RawLine;
+  } catch {
+    return null;
+  }
+  return lineToEvent(raw);
+}
+
 async function readFileEvents(path: string, out: RunEvent[], seen: Set<string>): Promise<void> {
   const rl = createInterface({
     input: createReadStream(path, { encoding: 'utf8' }),
     crlfDelay: Infinity,
   });
   for await (const line of rl) {
-    // Cheap pre-filter: skip lines that cannot be assistant runs (e.g. large
-    // attachment lines) without paying for a full JSON.parse.
-    if (!line || !line.includes('"assistant"')) continue;
-    let raw: RawLine;
-    try {
-      raw = JSON.parse(line) as RawLine;
-    } catch {
-      continue;
-    }
-    const event = lineToEvent(raw);
+    const event = parseRunLine(line);
     if (!event) continue;
     if (seen.has(event.id)) continue;
     seen.add(event.id);

@@ -16,6 +16,7 @@ Code. See the **Roadmap** below for the plan.
 - Reads your **local Claude Code session history** — zero config, nothing to enable, no API key
 - Breaks spend down by **repo / model / branch / day / week / session**, plus **main vs subagent** and a **cost composition** (input / output / cache)
 - Time window (`--since` / `--until`), **top sessions** and **most-expensive runs** — cross-run history `/usage` can't give you
+- **Live `watch` mode** — stream each run's cost as it happens, tagged with the **commit** checked out at run time
 - **Metadata only** — token counts and cost, never your code or prompts. Runs fully offline.
 
 ## Install
@@ -41,6 +42,16 @@ obolus scan --json                     # machine-readable output
 ```
 
 Dimensions for `--by`: `repo` · `model` · `branch` · `day` · `week` · `kind`.
+
+## Live monitor
+
+```sh
+obolus watch
+```
+
+Tails active Claude Code sessions and prints each run's cost the moment it happens — stamped with
+the **commit** checked out at run time, which the history scan can't see. Records append to
+`~/.obolus/live-ledger.jsonl` (metadata only). Ctrl+C to stop.
 
 Cost is an estimate computed from token counts × current public rates — not your actual bill.
 
