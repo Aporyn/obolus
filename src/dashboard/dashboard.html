@@ -87,9 +87,10 @@
   .bar-val { font-family: var(--mono); font-size: 0.82rem; color: var(--accent); min-width: 4.5rem; text-align: right; }
   .bar-sub { color: var(--faint); }
 
-  .trend { display: flex; align-items: flex-end; gap: 3px; height: 150px; }
-  .trend .col { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 0.4rem; min-width: 0; }
-  .trend .tb { width: 100%; max-width: 22px; background: var(--accent-2); border-radius: 3px 3px 0 0; transition: height 0.5s cubic-bezier(0.22,1,0.36,1); min-height: 1px; }
+  .trend { display: flex; align-items: flex-end; gap: 4px; }
+  .trend .col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 0.4rem; min-width: 0; }
+  .trend .bar-area { height: 140px; width: 100%; display: flex; align-items: flex-end; justify-content: center; }
+  .trend .tb { width: 100%; max-width: 22px; background: var(--accent-2); border-radius: 3px 3px 0 0; transition: height 0.5s cubic-bezier(0.22,1,0.36,1); min-height: 2px; }
   .trend .tb:hover { background: var(--accent); }
   .trend .tl { font-family: var(--mono); font-size: 0.58rem; color: var(--faint); white-space: nowrap; }
 
@@ -240,7 +241,7 @@
     var days = (s.byDay || []).slice(-21);
     var max = days.reduce(function (m, d) { return Math.max(m, d.costUsd); }, 0) || 1;
     var cols = days.map(function (d) {
-      return '<div class="col" title="' + d.key + " " + fmtUsd(d.costUsd) + '"><div class="tb" style="height:' + (100 * d.costUsd / max) + '%"></div><div class="tl">' + esc(d.key.slice(5)) + "</div></div>";
+      return '<div class="col" title="' + d.key + " " + fmtUsd(d.costUsd) + '"><div class="bar-area"><div class="tb" style="height:' + (100 * d.costUsd / max) + '%"></div></div><div class="tl">' + esc(d.key.slice(5)) + "</div></div>";
     }).join("");
     return '<section class="block"><div class="block-head"><h2>Daily trend</h2><span class="meta">last ' + days.length + " days</span></div>" +
       '<div class="trend">' + (cols || '<p class="live-empty">No data.</p>') + "</div></section>";
