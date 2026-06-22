@@ -35,9 +35,9 @@ function ev(over: Partial<RunEvent> = {}): RunEvent {
     repoPath: '/x/repoA',
     repo: 'repoA',
     branch: null,
-    sessionId: 's',
+    sessionId: 's1',
     requestId: 'r',
-    timestamp: '',
+    timestamp: '2026-06-01T00:00:00Z',
     toolVersion: null,
     ...over,
   };
@@ -57,6 +57,29 @@ describe('summarize', () => {
     const s = summarize([ev({ repo: 'small' }), ev({ repo: 'big' }), ev({ repo: 'big' })], table);
     expect(s.byRepo[0]?.key).toBe('big');
     expect(s.byRepo[1]?.key).toBe('small');
+  });
+
+  it('groups by branch, mapping null to a placeholder', () => {
+    const s = summarize([ev({ branch: 'main' }), ev({ branch: 'main' }), ev({ branch: null })], table);
+    expect(s.byBranch[0]?.key).toBe('main');
+    expect(s.byBranch[0]?.runs).toBe(2);
+    expect(s.byBranch.some((b) => b.key === '(detached/none)')).toBe(true);
+  });
+
+  it('rolls up sessions with time span and repo/branch context', () => {
+    const s = summarize(
+      [
+        ev({ sessionId: 'sX', branch: 'feat', timestamp: '2026-06-02T10:00:00Z' }),
+        ev({ sessionId: 'sX', branch: 'feat', timestamp: '2026-06-02T12:00:00Z' }),
+      ],
+      table,
+    );
+    const session = s.sessions.find((x) => x.key === 'sX');
+    expect(session?.runs).toBe(2);
+    expect(session?.repo).toBe('repoA');
+    expect(session?.branch).toBe('feat');
+    expect(session?.firstSeen).toBe('2026-06-02T10:00:00Z');
+    expect(session?.lastSeen).toBe('2026-06-02T12:00:00Z');
   });
 
   it('flags unpriced models and excludes them from cost', () => {

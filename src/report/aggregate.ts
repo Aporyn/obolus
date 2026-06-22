@@ -1,7 +1,7 @@
-import type { PricingTable, RunEvent } from '../domain/types.js';
+import type { CostBreakdown, PricingTable, RunEvent, TokenUsage } from '../domain/types.js';
 import { priceRun } from '../pricing/cost.js';
 
-/** Rolled-up totals for one grouping key (a repo, a model, etc.). */
+/** Rolled-up totals for one grouping key (a repo, a model, a branch, ...). */
 export interface GroupTotals {
   readonly key: string;
   readonly runs: number;
@@ -14,7 +14,15 @@ export interface GroupTotals {
   readonly hasEstimated: boolean;
 }
 
-/** The result of a scan: overall totals plus per-repo and per-model breakdowns. */
+/** A session roll-up, enriched with the repo/branch it ran in and its time span. */
+export interface SessionTotals extends GroupTotals {
+  readonly repo: string;
+  readonly branch: string | null;
+  readonly firstSeen: string;
+  readonly lastSeen: string;
+}
+
+/** The result of a scan: overall totals plus per-dimension breakdowns. */
 export interface ScanSummary {
   readonly totalRuns: number;
   readonly totalTokens: number;
@@ -23,6 +31,9 @@ export interface ScanSummary {
   readonly estimatedModels: readonly string[];
   readonly byRepo: readonly GroupTotals[];
   readonly byModel: readonly GroupTotals[];
+  readonly byBranch: readonly GroupTotals[];
+  /** All sessions, ranked by cost (descending). */
+  readonly sessions: readonly SessionTotals[];
 }
 
 interface MutableTotals {
@@ -35,6 +46,23 @@ interface MutableTotals {
   costUsd: number;
   hasUnpriced: boolean;
   hasEstimated: boolean;
+}
+
+interface MutableSession extends MutableTotals {
+  repo: string;
+  branch: string | null;
+  firstSeen: string;
+  lastSeen: string;
+}
+
+function tokensOf(u: TokenUsage): number {
+  return (
+    u.inputTokens +
+    u.outputTokens +
+    u.cacheReadTokens +
+    u.cacheWrite5mTokens +
+    u.cacheWrite1hTokens
+  );
 }
 
 function emptyTotals(key: string): MutableTotals {
@@ -51,14 +79,46 @@ function emptyTotals(key: string): MutableTotals {
   };
 }
 
+function accumulate(
+  totals: MutableTotals,
+  usage: TokenUsage,
+  cost: CostBreakdown,
+  tokens: number,
+): void {
+  totals.runs += 1;
+  totals.inputTokens += usage.inputTokens;
+  totals.outputTokens += usage.outputTokens;
+  totals.cacheTokens += usage.cacheReadTokens + usage.cacheWrite5mTokens + usage.cacheWrite1hTokens;
+  totals.totalTokens += tokens;
+  totals.costUsd += cost.totalUsd;
+  if (!cost.priced) totals.hasUnpriced = true;
+  if (cost.estimated) totals.hasEstimated = true;
+}
+
+function bump(
+  map: Map<string, MutableTotals>,
+  key: string,
+  usage: TokenUsage,
+  cost: CostBreakdown,
+  tokens: number,
+): void {
+  const totals = map.get(key) ?? emptyTotals(key);
+  accumulate(totals, usage, cost, tokens);
+  map.set(key, totals);
+}
+
 function byCostThenTokens(a: GroupTotals, b: GroupTotals): number {
   return b.costUsd - a.costUsd || b.totalTokens - a.totalTokens;
 }
 
-/** Price every run and roll the events up by repo and by model. */
+const NO_BRANCH = '(detached/none)';
+
+/** Price every run and roll the events up by repo, model, branch, and session. */
 export function summarize(events: readonly RunEvent[], table: PricingTable): ScanSummary {
   const byRepo = new Map<string, MutableTotals>();
   const byModel = new Map<string, MutableTotals>();
+  const byBranch = new Map<string, MutableTotals>();
+  const bySession = new Map<string, MutableSession>();
   const unpriced = new Set<string>();
   const estimated = new Set<string>();
   let totalCostUsd = 0;
@@ -69,27 +129,29 @@ export function summarize(events: readonly RunEvent[], table: PricingTable): Sca
     if (!cost.priced) unpriced.add(event.model);
     if (cost.estimated) estimated.add(event.model);
 
-    const { usage } = event;
-    const cacheTokens =
-      usage.cacheReadTokens + usage.cacheWrite5mTokens + usage.cacheWrite1hTokens;
-    const tokens = usage.inputTokens + usage.outputTokens + cacheTokens;
+    const tokens = tokensOf(event.usage);
     totalCostUsd += cost.totalUsd;
     totalTokens += tokens;
 
-    for (const [map, key] of [
-      [byRepo, event.repo],
-      [byModel, event.model],
-    ] as const) {
-      const totals = map.get(key) ?? emptyTotals(key);
-      totals.runs += 1;
-      totals.inputTokens += usage.inputTokens;
-      totals.outputTokens += usage.outputTokens;
-      totals.cacheTokens += cacheTokens;
-      totals.totalTokens += tokens;
-      totals.costUsd += cost.totalUsd;
-      if (!cost.priced) totals.hasUnpriced = true;
-      if (cost.estimated) totals.hasEstimated = true;
-      map.set(key, totals);
+    bump(byRepo, event.repo, event.usage, cost, tokens);
+    bump(byModel, event.model, event.usage, cost, tokens);
+    bump(byBranch, event.branch ?? NO_BRANCH, event.usage, cost, tokens);
+
+    let session = bySession.get(event.sessionId);
+    if (!session) {
+      session = {
+        ...emptyTotals(event.sessionId),
+        repo: event.repo,
+        branch: event.branch,
+        firstSeen: event.timestamp,
+        lastSeen: event.timestamp,
+      };
+      bySession.set(event.sessionId, session);
+    }
+    accumulate(session, event.usage, cost, tokens);
+    if (event.timestamp) {
+      if (!session.firstSeen || event.timestamp < session.firstSeen) session.firstSeen = event.timestamp;
+      if (event.timestamp > session.lastSeen) session.lastSeen = event.timestamp;
     }
   }
 
@@ -101,5 +163,7 @@ export function summarize(events: readonly RunEvent[], table: PricingTable): Sca
     estimatedModels: [...estimated].sort(),
     byRepo: [...byRepo.values()].sort(byCostThenTokens),
     byModel: [...byModel.values()].sort(byCostThenTokens),
+    byBranch: [...byBranch.values()].sort(byCostThenTokens),
+    sessions: [...bySession.values()].sort(byCostThenTokens),
   };
 }
