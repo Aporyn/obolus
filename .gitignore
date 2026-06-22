@@ -1,0 +1,32 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+build/
+coverage/
+
+# Logs
+*.log
+
+# Secrets / environment
+.env
+.env.*
+
+# OS / editor
+.DS_Store
+
+# Obolus local data (ledger, cache)
+.obolus/
+
+# --- Internal — do NOT publish (open-core: only code ships) ---
+# Strategy, planning, progress, and AI-assistant docs stay local.
+CLAUDE.md
+AGENTS.md
+.claude/
+v1-scope.md
+decisions.md
+STATUS.md
+NOTES.md
+/docs/internal/
+*.internal.md
