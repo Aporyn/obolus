@@ -13,10 +13,30 @@ Code. See the **Roadmap** below for the plan.
 
 ## What it does (v0)
 
-- Reads Claude Code's OpenTelemetry cost/token signals locally
-- Attributes spend to **repo / branch / commit / run**
-- Shows a per-run terminal summary + a local report
+- Reads your **local Claude Code session history** — zero config, nothing to enable, no API key
+- Attributes spend across **all your repos**, broken down by **repo / model / branch / session**
+- Time window (`--since 7d`) and a **top-sessions** ranking — cross-run history `/usage` can't give you
 - **Metadata only** — token counts and cost, never your code or prompts. Runs fully offline.
+
+## Install
+
+```sh
+npx obolus scan
+```
+
+That's it — one command, no setup. (For development: clone, then `pnpm install && pnpm build`.)
+
+## Usage
+
+```sh
+obolus scan                            # all history, grouped by repo
+obolus scan --since 7d                 # only the last 7 days
+obolus scan --repo myapp --by branch   # one repo, broken down by branch
+obolus scan --top 20                   # show more rows per section
+obolus scan --json                     # machine-readable output
+```
+
+Cost is an estimate computed from token counts × current public rates — not your actual bill.
 
 ## Why
 

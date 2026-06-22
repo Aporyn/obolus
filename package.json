@@ -4,6 +4,26 @@
   "description": "Observability for AI coding-agent spend — see what each PR, repo, and developer actually costs.",
   "type": "module",
   "license": "MIT",
+  "author": "Aporyn",
+  "homepage": "https://obolus.dev",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/obolus/obolus.git"
+  },
+  "bugs": {
+    "url": "https://github.com/obolus/obolus/issues"
+  },
+  "keywords": [
+    "ai",
+    "llm",
+    "cost",
+    "observability",
+    "finops",
+    "tokens",
+    "claude-code",
+    "coding-agent",
+    "cli"
+  ],
   "bin": {
     "obolus": "dist/index.js"
   },
@@ -19,7 +39,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "eslint .",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "prepublishOnly": "pnpm build && pnpm test"
   },
   "devDependencies": {
     "@eslint/js": "^9.0.0",
