@@ -1,46 +1,68 @@
 # Design tokens (shared)
 
-Single source of truth for the tokens shared between the two local UI surfaces:
+Single source of truth for the design language shared by the two local UI surfaces:
 
-- **Web dashboard** — `src/dashboard/dashboard.html` (HTML/CSS, branded sage + Marcellus serif).
-- **Native app** — `apps/desktop` (SwiftUI, native macOS look) via `Theme` in
-  `apps/desktop/Sources/Obolus/Views/Theme.swift`.
+- **Web dashboard** — `src/dashboard/dashboard.html` (HTML/CSS).
+- **Native app** — `apps/desktop` (SwiftUI) via `Theme` / `ThemeController` in
+  `apps/desktop/Sources/Obolus/Views/`.
 
-## What is shared vs not
+Both target a **neutral, native-macOS** look (not a bespoke brand palette): neutral surfaces,
+system font, restrained system-blue accent, and semantic provenance colours. The two surfaces should
+read as the same product (decision: same design language; pixel-identical is not required since
+SwiftUI and HTML render differently).
 
-The two surfaces have **intentionally different brand palettes** (the web is a branded, marketing-facing
-demo; the app is native-macOS). We do **not** force them pixel-identical (decision: app primary, web
-secondary, "style as similar as is convenient"). What IS shared and must stay consistent:
+## Theme
 
-- **Semantic/provenance tokens** (below) — the meaning and visual language of attribution confidence.
-- **Component anatomy** — the row/section structure, so the same data reads the same way.
-- **Number treatment** — costs and counts use a monospaced font; cost is tinted with the surface accent.
+Both surfaces **follow the system appearance by default, with a manual light/dark toggle** (the `◐`
+button). Web persists the choice in `localStorage` (`obolusTheme`) and applies it via
+`prefers-color-scheme` + `[data-theme]`; the app persists in `UserDefaults` and applies it via
+`NSApp.appearance` (`ThemeController`).
+
+## Palette (neutral macOS)
+
+| Token | Light | Dark | Use |
+| --- | --- | --- | --- |
+| `bg` | `#f5f5f7` | `#1c1c1e` | page background |
+| `surface` | `#ffffff` | `#2c2c2e` | cards |
+| `bg-deep` | `#ececef` | `#141416` | recessed (segmented-control track) |
+| `ink` | `#1d1d1f` | `#f5f5f7` | primary text + **cost figures** |
+| `muted` | `#6e6e73` | `#98989d` | secondary text |
+| `faint` | `#98989d` | `#6e6e73` | tertiary / labels |
+| `hair` | `#d9d9de` | `#3a3a3c` | borders |
+| `accent` | `#0071e3` | `#0a84ff` | system blue — sparingly (wedge highlight, links) |
+
+App equivalents are native: surfaces/text use system semantic colours, `accent` = the system accent
+(`Color.accentColor`). Cost figures are neutral (`ink`/primary), **not** accent-coloured.
 
 ## Provenance tokens (attribution confidence)
 
-Used by "Spend by commit / release". A run's cost is `exact` (live-stamped by `watch`), `estimated`
-(reconstructed from git), or `unattributed` (WIP / no git). See `src/report/commit-resolution.ts`.
+A run's cost is `exact` (live-stamped by `watch`), `estimated` (reconstructed from git), or
+`unattributed`. See `src/report/commit-resolution.ts`.
 
-| Token | Meaning | Dot style | Web (`dashboard.html`) | App (`Theme.swift`) |
-| --- | --- | --- | --- | --- |
-| `exact` | captured live by `watch` | filled | `--exact: #2f8a5b` | `Theme.exact` (`.green`) |
-| `estimated` | reconstructed from git history | hollow ring | `--estimated: #b9831f` | `Theme.estimated` (`.orange`) |
-| `unattributed` | uncommitted / no git | filled, muted | `--unattributed: var(--faint)` | `Theme.unattributed` (`.secondary`) |
+| Token | Meaning | Dot | Light | Dark | App (`Theme`) |
+| --- | --- | --- | --- | --- | --- |
+| `exact` | captured live | filled | `#30a46c` | `#30d158` | `.green` |
+| `estimated` | reconstructed from git | hollow ring | `#c2820a` | `#ff9f0a` | `.orange` |
+| `unattributed` | uncommitted / no git | filled, muted | `faint` | `faint` | `.secondary` |
+
+## Typography
+
+System font everywhere — `-apple-system`/SF (`--sans`, `--display` on web; native on the app). No
+serif. Numbers (cost, tokens, SHAs) use a monospaced font.
 
 ## Component anatomy (commit / release)
 
-Both surfaces render the section the same way:
+Both surfaces render the section identically in structure:
 
-- **Commit row** — provenance dot · short SHA (mono) · subject (+ release pill) · cost (mono, accent).
-  The `(unattributed)` row replaces SHA/subject with "uncommitted / no git".
-- **Release row** — tag (mono) · `N commits · date range` · cost (mono, accent).
-- **Toggle** — a `Commit | Release` segmented control.
+- **Wedge** — two cards: `claude code /usage` → one number (muted) vs `obolus adds` → "every commit ·
+  branch · release", the second card outlined in `accent`.
+- **Commit row** — provenance dot · short SHA (mono) · subject (+ release pill) · cost (mono, `ink`).
+- **Release row** — tag (mono) · `N commits · date range` · cost.
+- **Toggle** — `Commit | Release` segmented control; the active segment is a raised neutral pill.
 - **Legend** — exact / estimated / unattributed.
-- **Wedge line** — "`/usage` shows one machine total — Obolus prices every commit and release, with
-  history."
 
-## How to keep them in sync
+## Keeping in sync
 
-When a shared token changes, update **both** the web CSS variable in `dashboard.html` `:root` and the
-corresponding `Theme` constant, and this table. There is deliberately no codegen — the surfaces are
-small and the token set is tiny; a short shared spec (this file) is the lighter-weight contract.
+When a shared token changes, update the web CSS variable in `dashboard.html` `:root` (+ the dark
+blocks), the corresponding `Theme`/usage in the app, and this table. No codegen — the surfaces are
+small; this short spec is the contract.

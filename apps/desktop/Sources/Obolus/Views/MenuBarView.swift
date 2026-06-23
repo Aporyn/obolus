@@ -105,6 +105,10 @@ struct MenuBarView: View {
                 Label("Open dashboard", systemImage: "macwindow")
             }
             Spacer()
+            Button { ThemeController.shared.toggle() } label: {
+                Image(systemName: "circle.lefthalf.filled")
+            }
+            .help("Toggle light / dark")
             Button { Task { await store.refresh() } } label: {
                 Image(systemName: "arrow.clockwise")
             }

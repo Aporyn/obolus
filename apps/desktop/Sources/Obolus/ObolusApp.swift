@@ -24,6 +24,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory) // menu-bar agent; no Dock icon by default
+        _ = ThemeController.shared // apply persisted light/dark override (default: follow system)
         store.attach(to: serve)
         serve.start()
 

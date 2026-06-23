@@ -26,7 +26,7 @@ struct SpendByCommitSection: View {
                 .fixedSize()
             }
 
-            wedgeStrip
+            wedgeCards
 
             if mode == .commit {
                 commitList
@@ -38,16 +38,32 @@ struct SpendByCommitSection: View {
         }
     }
 
-    // The /usage-vs-obolus framing, made compact.
-    private var wedgeStrip: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "info.circle").font(.caption).foregroundStyle(.secondary)
-            Text("`/usage` shows one machine total — obolus prices every commit and release, with history.")
-                .font(.caption).foregroundStyle(.secondary)
-            Spacer()
+    // The /usage-vs-obolus framing: two cards (mirrors the web dashboard).
+    private var wedgeCards: some View {
+        HStack(spacing: 10) {
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 4) {
+                    Text("claude code").font(.caption).foregroundStyle(.secondary)
+                    Text("/usage").font(.caption).monospaced().foregroundStyle(.secondary)
+                }
+                Text(Fmt.usd(summary.totalCostUsd))
+                    .font(.title3).monospacedDigit().foregroundStyle(.secondary)
+                Text("this machine · one number").font(.caption2).foregroundStyle(.tertiary)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(10)
+            .background(.quaternary.opacity(0.4), in: RoundedRectangle(cornerRadius: 10))
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text("obolus adds").font(.caption).foregroundStyle(Color.accentColor)
+                Text("every commit · branch · release").font(.callout).fontWeight(.medium)
+                Text("persistent history — what /usage can't show")
+                    .font(.caption2).foregroundStyle(.secondary)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(10)
+            .background(RoundedRectangle(cornerRadius: 10).strokeBorder(Color.accentColor, lineWidth: 1.5))
         }
-        .padding(.vertical, 6).padding(.horizontal, 10)
-        .background(.quaternary.opacity(0.4), in: RoundedRectangle(cornerRadius: 8))
     }
 
     @ViewBuilder private var commitList: some View {
