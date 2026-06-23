@@ -64,6 +64,48 @@ public struct RunRef: Codable, Equatable, Identifiable, Sendable {
     public var id: String { "\(sessionId)|\(timestamp)|\(model)" }
 }
 
+/// Per-commit totals, with an exact/estimated attribution split. Mirrors `CommitTotals`.
+public struct CommitTotals: Codable, Equatable, Identifiable, Sendable {
+    public let key: String
+    public let runs: Int
+    public let inputTokens: Int
+    public let outputTokens: Int
+    public let cacheTokens: Int
+    public let totalTokens: Int
+    public let costUsd: Double
+    public let hasUnpriced: Bool
+    public let hasEstimated: Bool
+    public let subject: String
+    public let committedAt: String
+    public let release: String?
+    public let exactUsd: Double
+    public let estimatedUsd: Double
+
+    public var id: String { key }
+    public var isUnattributed: Bool { key == "(unattributed)" }
+}
+
+/// Per-release totals (a git tag, `unreleased`, or `(unattributed)`). Mirrors `ReleaseTotals`.
+public struct ReleaseTotals: Codable, Equatable, Identifiable, Sendable {
+    public let key: String
+    public let runs: Int
+    public let inputTokens: Int
+    public let outputTokens: Int
+    public let cacheTokens: Int
+    public let totalTokens: Int
+    public let costUsd: Double
+    public let hasUnpriced: Bool
+    public let hasEstimated: Bool
+    public let firstCommitAt: String
+    public let lastCommitAt: String
+    public let commitCount: Int
+    public let exactUsd: Double
+    public let estimatedUsd: Double
+
+    public var id: String { key }
+    public var isUnattributed: Bool { key == "(unattributed)" }
+}
+
 /// The full scan summary returned by `GET /api/summary`. Mirrors `ScanSummary`.
 public struct ScanSummary: Codable, Equatable, Sendable {
     public let totalRuns: Int
@@ -80,6 +122,8 @@ public struct ScanSummary: Codable, Equatable, Sendable {
     public let byKind: [GroupTotals]
     public let sessions: [SessionTotals]
     public let topRuns: [RunRef]
+    public let byCommit: [CommitTotals]
+    public let byRelease: [ReleaseTotals]
 }
 
 /// One live run streamed over `GET /api/events` (SSE). Mirrors the payload built in serve.ts.
@@ -123,7 +167,9 @@ public extension ScanSummary {
         byWeek: [],
         byKind: [],
         sessions: [],
-        topRuns: []
+        topRuns: [],
+        byCommit: [],
+        byRelease: []
     )
 
     /// Cost for today (UTC day, matching the server's `byDay` keys), derived from `byDay`.

@@ -18,7 +18,14 @@ final class ModelsTests: XCTestCase {
       "byWeek": [],
       "byKind": [],
       "sessions": [{"key":"s1","runs":3,"inputTokens":100,"outputTokens":200,"cacheTokens":300,"totalTokens":1500,"costUsd":12.5,"hasUnpriced":false,"hasEstimated":true,"repo":"obolus","branch":null,"firstSeen":"2026-06-23T10:00:00Z","lastSeen":"2026-06-23T12:00:00Z"}],
-      "topRuns": [{"repo":"obolus","branch":"main","model":"claude-opus-4-8","sessionId":"s1","timestamp":"2026-06-23T11:00:00Z","costUsd":5.0,"totalTokens":700,"isSidechain":false}]
+      "topRuns": [{"repo":"obolus","branch":"main","model":"claude-opus-4-8","sessionId":"s1","timestamp":"2026-06-23T11:00:00Z","costUsd":5.0,"totalTokens":700,"isSidechain":false}],
+      "byCommit": [
+        {"key":"aaaaaaaa","runs":2,"inputTokens":50,"outputTokens":100,"cacheTokens":150,"totalTokens":900,"costUsd":9.0,"hasUnpriced":false,"hasEstimated":false,"subject":"first","committedAt":"2026-06-23T10:00:00Z","release":"v1","exactUsd":4.0,"estimatedUsd":5.0},
+        {"key":"(unattributed)","runs":1,"inputTokens":50,"outputTokens":100,"cacheTokens":150,"totalTokens":600,"costUsd":3.5,"hasUnpriced":false,"hasEstimated":true,"subject":"","committedAt":"","release":null,"exactUsd":0.0,"estimatedUsd":0.0}
+      ],
+      "byRelease": [
+        {"key":"v1","runs":2,"inputTokens":50,"outputTokens":100,"cacheTokens":150,"totalTokens":900,"costUsd":9.0,"hasUnpriced":false,"hasEstimated":false,"firstCommitAt":"2026-06-23T10:00:00Z","lastCommitAt":"2026-06-23T10:00:00Z","commitCount":1,"exactUsd":4.0,"estimatedUsd":5.0}
+      ]
     }
     """
 
@@ -32,6 +39,27 @@ final class ModelsTests: XCTestCase {
         XCTAssertNil(summary.sessions.first?.branch)
         XCTAssertEqual(summary.topRuns.first?.branch, "main")
         XCTAssertEqual(summary.estimatedModels, ["claude-fable-5"])
+    }
+
+    func testDecodeByCommitAndRelease() throws {
+        let summary = try JSONDecoder().decode(ScanSummary.self, from: Data(summaryJSON.utf8))
+
+        XCTAssertEqual(summary.byCommit.count, 2)
+        let first = summary.byCommit.first
+        XCTAssertEqual(first?.key, "aaaaaaaa")
+        XCTAssertEqual(first?.subject, "first")
+        XCTAssertEqual(first?.release, "v1")
+        XCTAssertEqual(first?.exactUsd, 4.0, accuracy: 1e-9)
+        XCTAssertEqual(first?.estimatedUsd, 5.0, accuracy: 1e-9)
+        XCTAssertFalse(first?.isUnattributed ?? true)
+        XCTAssertTrue(summary.byCommit.last?.isUnattributed ?? false)
+
+        // Conservation: per-commit costs sum to the total.
+        let sumCommit = summary.byCommit.reduce(0.0) { $0 + $1.costUsd }
+        XCTAssertEqual(sumCommit, summary.totalCostUsd, accuracy: 1e-9)
+
+        XCTAssertEqual(summary.byRelease.first?.key, "v1")
+        XCTAssertEqual(summary.byRelease.first?.commitCount, 1)
     }
 
     func testCostTodayUsesUTCDay() throws {

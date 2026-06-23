@@ -3,8 +3,11 @@ import { execFile } from 'node:child_process';
 import { scanTranscripts } from '../collector/transcript-scanner.js';
 import { claudeProjectsDir } from '../collector/paths.js';
 import { tailRuns } from '../collector/tailer.js';
+import { defaultGitHistory } from '../collector/git-history.js';
+import { readLiveRecords } from '../ledger/live-ledger.js';
 import { ANTHROPIC_PRICING } from '../pricing/pricing-table.js';
 import { summarize } from '../report/aggregate.js';
+import { resolveAttribution } from '../report/commit-resolution.js';
 import { DASHBOARD_HTML } from './html.js';
 
 const DEFAULT_PORT = 4317;
@@ -30,7 +33,8 @@ function openBrowser(url: string): void {
 async function sendSummary(res: ServerResponse, root: string): Promise<void> {
   try {
     const events = await scanTranscripts(root);
-    const summary = summarize(events, ANTHROPIC_PRICING);
+    const attribution = resolveAttribution(events, await readLiveRecords(), defaultGitHistory);
+    const summary = summarize(events, ANTHROPIC_PRICING, { attribution });
     res.writeHead(200, { 'content-type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify(summary));
   } catch (err) {

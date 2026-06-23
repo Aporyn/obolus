@@ -1,7 +1,14 @@
 import type { PricingTable } from '../domain/types.js';
-import type { GroupTotals, RunRef, ScanSummary, SessionTotals } from './aggregate.js';
+import type {
+  CommitTotals,
+  GroupTotals,
+  ReleaseTotals,
+  RunRef,
+  ScanSummary,
+  SessionTotals,
+} from './aggregate.js';
 
-export type GroupDimension = 'repo' | 'model' | 'branch' | 'day' | 'week' | 'kind';
+export type GroupDimension = 'repo' | 'model' | 'branch' | 'day' | 'week' | 'kind' | 'commit' | 'release';
 
 export interface RenderOptions {
   readonly by: GroupDimension;
@@ -91,6 +98,10 @@ function groupFor(summary: ScanSummary, by: GroupDimension): readonly GroupTotal
       return summary.byWeek;
     case 'kind':
       return summary.byKind;
+    case 'commit':
+      return summary.byCommit;
+    case 'release':
+      return summary.byRelease;
     default:
       return summary.byRepo;
   }
@@ -99,6 +110,28 @@ function groupFor(summary: ScanSummary, by: GroupDimension): readonly GroupTotal
 function row(g: GroupTotals): string {
   const flag = g.hasUnpriced ? '  ⚠ unpriced' : g.hasEstimated ? '  ~ est.' : '';
   return `  ${pad(g.key, 26)} ${fmtUsd(g.costUsd).padStart(10)}  ${fmtTokens(g.totalTokens).padStart(8)}  ${String(g.runs).padStart(5)} runs${flag}`;
+}
+
+const UNATTRIBUTED_KEY = '(unattributed)';
+
+function commitRow(c: CommitTotals): string {
+  if (c.key === UNATTRIBUTED_KEY) {
+    return `  ${pad(UNATTRIBUTED_KEY, 10)} ${pad('uncommitted / no git', 34)} ${fmtUsd(c.costUsd).padStart(10)}`;
+  }
+  const prov =
+    c.exactUsd > 0 && c.estimatedUsd === 0
+      ? 'exact'
+      : c.estimatedUsd > 0 && c.exactUsd === 0
+        ? '~est'
+        : 'mixed';
+  const rel = c.release ? `  (${c.release})` : '';
+  return `  ${pad(c.key, 10)} ${pad(c.subject || '—', 34)} ${fmtUsd(c.costUsd).padStart(10)}  ${prov}${rel}`;
+}
+
+function releaseRow(r: ReleaseTotals): string {
+  const span = r.firstCommitAt ? `${day(r.firstCommitAt)}→${day(r.lastCommitAt)}` : '—';
+  const meta = r.key === UNATTRIBUTED_KEY ? '' : `  ${r.commitCount} commits  ${span}`;
+  return `  ${pad(r.key, 16)} ${fmtUsd(r.costUsd).padStart(10)}${meta}`;
 }
 
 function sessionRow(s: SessionTotals): string {
@@ -172,11 +205,17 @@ export function renderSummary(
     );
   }
 
-  const groups = groupFor(summary, opts.by);
-  const shown = CHRONOLOGICAL.has(opts.by) ? groups.slice(-opts.top) : groups.slice(0, opts.top);
   lines.push('');
   lines.push(`By ${opts.by}:`);
-  for (const g of shown) lines.push(row(g));
+  if (opts.by === 'commit') {
+    for (const c of summary.byCommit.slice(0, opts.top)) lines.push(commitRow(c));
+  } else if (opts.by === 'release') {
+    for (const r of summary.byRelease.slice(0, opts.top)) lines.push(releaseRow(r));
+  } else {
+    const groups = groupFor(summary, opts.by);
+    const shown = CHRONOLOGICAL.has(opts.by) ? groups.slice(-opts.top) : groups.slice(0, opts.top);
+    for (const g of shown) lines.push(row(g));
+  }
 
   lines.push('');
   lines.push('Top sessions by cost:');

@@ -49,6 +49,7 @@ export async function runWatch(root: string = claudeProjectsDir()): Promise<void
       totalRuns += 1;
       console.log(formatRun(run.event, run.commit, run.cost.totalUsd, totalUsd));
       await appendLiveRecord({
+        id: run.event.id,
         ts: run.event.timestamp,
         repo: run.event.repo,
         repoPath: run.event.repoPath,

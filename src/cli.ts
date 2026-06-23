@@ -1,9 +1,12 @@
 import { scanTranscripts } from './collector/transcript-scanner.js';
 import { runWatch } from './collector/watch.js';
+import { defaultGitHistory } from './collector/git-history.js';
 import { runServe } from './dashboard/serve.js';
 import { writeLedger } from './ledger/ledger.js';
+import { readLiveRecords } from './ledger/live-ledger.js';
 import { ANTHROPIC_PRICING } from './pricing/pricing-table.js';
 import { summarize } from './report/aggregate.js';
+import { resolveAttribution } from './report/commit-resolution.js';
 import { filterEvents } from './report/filter.js';
 import { parseSince } from './report/timeframe.js';
 import { renderSummary, type GroupDimension } from './report/terminal.js';
@@ -26,7 +29,9 @@ function isDimension(value: string): value is GroupDimension {
     value === 'branch' ||
     value === 'day' ||
     value === 'week' ||
-    value === 'kind'
+    value === 'kind' ||
+    value === 'commit' ||
+    value === 'release'
   );
 }
 
@@ -130,7 +135,7 @@ Scan options:
   --repo <name>                only this repo (basename)
   --branch <name>              only this branch
   --model <id>                 only this model
-  --by <dimension>             group by: repo | model | branch | day | week | kind (default: repo)
+  --by <dimension>             group by: repo | model | branch | day | week | kind | commit | release (default: repo)
   --top <n>                    rows per section (default 12)
   --json                       machine-readable output
 
@@ -170,7 +175,13 @@ async function runScan(rawArgs: readonly string[]): Promise<void> {
     branch: args.branch,
     model: args.model,
   });
-  const summary = summarize(view, ANTHROPIC_PRICING);
+  // Commit/release breakdowns need git attribution; resolve it only when asked
+  // (it reads the local git history and the live ledger).
+  const needAttribution = args.by === 'commit' || args.by === 'release';
+  const attribution = needAttribution
+    ? resolveAttribution(view, await readLiveRecords(), defaultGitHistory)
+    : undefined;
+  const summary = summarize(view, ANTHROPIC_PRICING, attribution ? { attribution } : {});
 
   if (args.json) {
     console.log(

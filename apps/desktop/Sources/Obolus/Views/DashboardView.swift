@@ -21,6 +21,7 @@ struct DashboardView: View {
                     Group {
                         historyCaption
                         KPISection(summary: store.summary)
+                        SpendByCommitSection(summary: store.summary)
                         CompositionBar(composition: store.summary.composition)
                         BreakdownSection(summary: store.summary)
                         DailyTrendChart(summary: store.summary)
