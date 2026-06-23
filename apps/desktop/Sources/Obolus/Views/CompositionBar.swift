@@ -14,11 +14,12 @@ struct CompositionBar: View {
     }
 
     private var segments: [Segment] {
+        // Monochrome blue ramp, saturated → muted — mirrors the web composition bar.
         [
-            Segment(label: "Input", value: composition.inputUsd, color: .blue),
-            Segment(label: "Output", value: composition.outputUsd, color: .green),
-            Segment(label: "Cache read", value: composition.cacheReadUsd, color: .orange),
-            Segment(label: "Cache write", value: composition.cacheWriteUsd, color: .purple),
+            Segment(label: "Input", value: composition.inputUsd, color: Theme.accent),
+            Segment(label: "Output", value: composition.outputUsd, color: Theme.accent2),
+            Segment(label: "Cache read", value: composition.cacheReadUsd, color: Theme.accent3),
+            Segment(label: "Cache write", value: composition.cacheWriteUsd, color: Theme.accent4),
         ]
     }
 

@@ -6,7 +6,7 @@ struct KPISection: View {
     let summary: ScanSummary
 
     private var today: GroupTotals? {
-        let key = ScanSummary.dayKey(for: Date(), calendar: ScanSummary.utcCalendar)
+        let key = ScanSummary.dayKey(for: Date(), calendar: ScanSummary.localCalendar)
         return summary.byDay.first { $0.key == key }
     }
 

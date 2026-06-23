@@ -2,6 +2,10 @@ import { describe, it, expect } from 'vitest';
 import { summarize } from '../src/report/aggregate.js';
 import type { PricingTable, RunEvent, TokenUsage } from '../src/domain/types.js';
 
+// Day/week buckets are local-timezone (per-developer "today"). Pin a fixed zone (UTC+8) so the
+// assertions are deterministic regardless of the machine/CI timezone.
+process.env.TZ = 'Asia/Taipei';
+
 const table: PricingTable = {
   asOf: 'test',
   source: 'test',
@@ -97,6 +101,12 @@ describe('summarize', () => {
     expect(s.byDay.map((d) => d.key)).toEqual(['2026-06-01', '2026-06-02']);
     expect(s.byDay[1]?.runs).toBe(2);
     expect(s.byWeek.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('buckets days by the local clock, not UTC', () => {
+    // 20:00Z on 06-01 is 04:00 on 06-02 in UTC+8 — it must land on the local day (06-02).
+    const s = summarize([ev({ timestamp: '2026-06-01T20:00:00Z' })], table);
+    expect(s.byDay[0]?.key).toBe('2026-06-02');
   });
 
   it('splits main vs subagent via byKind', () => {

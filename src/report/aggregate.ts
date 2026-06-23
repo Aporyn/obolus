@@ -331,20 +331,34 @@ function foldReleases(runs: readonly PricedRun[], attribution: Map<string, Attri
     .sort(byReleaseOrder);
 }
 
-function dayKey(iso: string): string {
-  return iso ? iso.slice(0, 10) : 'unknown';
+function pad2(n: number): string {
+  return String(n).padStart(2, '0');
 }
 
-/** ISO date (YYYY-MM-DD) of the Monday that starts the run's week, in UTC. */
+/** `YYYY-MM-DD` of a Date in the *local* timezone (the machine running the collector). */
+function localDayKey(date: Date): string {
+  return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
+}
+
+/**
+ * Day buckets use the local timezone, not UTC — this is a per-developer local tool, so "today"
+ * should follow the user's own clock (their dashboard/app/CLI all read the same local key).
+ */
+function dayKey(iso: string): string {
+  if (!iso) return 'unknown';
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return 'unknown';
+  return localDayKey(date);
+}
+
+/** Local-date `YYYY-MM-DD` of the Monday that starts the run's week. */
 function weekKey(iso: string): string {
   if (!iso) return 'unknown';
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return 'unknown';
-  const mondayOffset = (date.getUTCDay() + 6) % 7;
-  const monday = new Date(
-    Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() - mondayOffset),
-  );
-  return monday.toISOString().slice(0, 10);
+  const mondayOffset = (date.getDay() + 6) % 7;
+  const monday = new Date(date.getFullYear(), date.getMonth(), date.getDate() - mondayOffset);
+  return localDayKey(monday);
 }
 
 function byCostThenTokens(a: GroupTotals, b: GroupTotals): number {

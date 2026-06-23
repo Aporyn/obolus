@@ -261,7 +261,10 @@
   var commitMode = "commit";
 
   function kpis(s) {
-    var todayKey = new Date().toISOString().slice(0, 10);
+    var now = new Date();
+    var p2 = function (n) { return (n < 10 ? "0" : "") + n; };
+    // Local day key — matches the server's local-timezone byDay buckets (the user's own clock).
+    var todayKey = now.getFullYear() + "-" + p2(now.getMonth() + 1) + "-" + p2(now.getDate());
     var today = (s.byDay || []).filter(function (d) { return d.key === todayKey; })[0];
     var cells = [
       { label: "Estimated cost", value: fmtUsd(s.totalCostUsd), money: true },

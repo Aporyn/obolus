@@ -55,14 +55,14 @@ struct SpendByCommitSection: View {
             .background(.quaternary.opacity(0.4), in: RoundedRectangle(cornerRadius: 10))
 
             VStack(alignment: .leading, spacing: 4) {
-                Text("obolus adds").font(.caption).foregroundStyle(Color.accentColor)
+                Text("obolus adds").font(.caption).foregroundStyle(Theme.accent)
                 Text("every commit · branch · release").font(.callout).fontWeight(.medium)
                 Text("persistent history — what /usage can't show")
                     .font(.caption2).foregroundStyle(.secondary)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(10)
-            .background(RoundedRectangle(cornerRadius: 10).strokeBorder(Color.accentColor, lineWidth: 1.5))
+            .background(RoundedRectangle(cornerRadius: 10).strokeBorder(Theme.accent, lineWidth: 1.5))
         }
     }
 

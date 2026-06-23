@@ -7,7 +7,7 @@ struct ConnectionDot: View {
     let isLive: Bool
     var body: some View {
         Circle()
-            .fill(isLive ? Color.green : Color.secondary.opacity(0.5))
+            .fill(isLive ? Theme.exact : Color.secondary.opacity(0.5))
             .frame(width: 8, height: 8)
             .accessibilityLabel(isLive ? "Live" : "Not capturing")
     }
@@ -73,26 +73,76 @@ struct EstimateBadge: View {
             Text(hasUnpriced ? "unpriced" : "est.")
                 .font(.system(size: 9, weight: .medium))
                 .padding(.horizontal, 4).padding(.vertical, 1)
-                .background(.orange.opacity(0.18), in: Capsule())
-                .foregroundStyle(.orange)
+                .background(Theme.estimated.opacity(0.18), in: Capsule())
+                .foregroundStyle(Theme.estimated)
         }
     }
 }
 
-/// A compact daily-cost sparkline for the popover.
+/// A compact 7-day daily-cost chart for the popover: a dated x-axis, a resting readout
+/// (7-day total), and hover-to-read the exact spend / runs for any single day.
 struct MiniSparkline: View {
     let days: [GroupTotals]
+    @State private var hoverKey: String?
+
+    private var hovered: GroupTotals? { hoverKey.flatMap { k in days.first { $0.key == k } } }
+    private var total: Double { days.reduce(0) { $0 + $1.costUsd } }
+
     var body: some View {
-        Chart(days) { day in
-            BarMark(
-                x: .value("Day", day.key),
-                y: .value("Cost", day.costUsd)
-            )
-            .foregroundStyle(Color.accentColor.gradient)
-            .cornerRadius(1.5)
+        VStack(alignment: .leading, spacing: 3) {
+            readout
+            chart
         }
-        .chartXAxis(.hidden)
+    }
+
+    @ViewBuilder private var readout: some View {
+        Group {
+            if let h = hovered {
+                Text("\(Fmt.day(h.key)) · \(Fmt.usd(h.costUsd)) · \(h.runs) \(h.runs == 1 ? "run" : "runs")")
+                    .foregroundStyle(.secondary)
+            } else {
+                Text("7-day total \(Fmt.usd(total)) · hover a bar for a day")
+                    .foregroundStyle(.tertiary)
+            }
+        }
+        .font(.caption2).monospacedDigit()
+        .frame(height: 13, alignment: .leading)
+    }
+
+    private var chart: some View {
+        Chart(days) { day in
+            BarMark(x: .value("Day", day.key), y: .value("Cost", day.costUsd))
+                .foregroundStyle(barColor(for: day.key))
+                .cornerRadius(1.5)
+        }
         .chartYAxis(.hidden)
-        .frame(height: 38)
+        .chartXAxis {
+            AxisMarks(values: .automatic) { value in
+                AxisValueLabel {
+                    if let key = value.as(String.self) { Text(String(key.suffix(5))).font(.system(size: 8)) } // MM-DD
+                }
+            }
+        }
+        .frame(height: 50)
+        .chartOverlay { proxy in
+            GeometryReader { geo in
+                Rectangle().fill(.clear).contentShape(Rectangle())
+                    .onContinuousHover { phase in
+                        switch phase {
+                        case .active(let point):
+                            let originX = geo[proxy.plotAreaFrame].origin.x
+                            hoverKey = proxy.value(atX: point.x - originX, as: String.self)
+                        case .ended:
+                            hoverKey = nil
+                        }
+                    }
+            }
+        }
+    }
+
+    /// Dim the other bars while one is hovered, so the focused day reads clearly.
+    private func barColor(for key: String) -> Color {
+        guard let hovered = hoverKey else { return Theme.accent2 }
+        return hovered == key ? Theme.accent : Theme.accent2.opacity(0.3)
     }
 }

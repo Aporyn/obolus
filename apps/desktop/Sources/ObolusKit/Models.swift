@@ -144,13 +144,9 @@ public struct LiveRunEvent: Codable, Equatable, Identifiable, Sendable {
 }
 
 public extension ScanSummary {
-    /// `byDay`/`byWeek` keys are UTC dates (serve slices the UTC ISO timestamp), so day-key
-    /// lookups must use UTC to match `/api/summary` exactly — not the user's local calendar.
-    static var utcCalendar: Calendar {
-        var c = Calendar(identifier: .gregorian)
-        c.timeZone = TimeZone(identifier: "UTC") ?? c.timeZone
-        return c
-    }
+    /// `byDay`/`byWeek` keys are *local* dates (serve buckets in the machine's local timezone),
+    /// so day-key lookups use the device's current calendar to match `/api/summary` exactly.
+    static var localCalendar: Calendar { Calendar.current }
 
     /// An empty summary used as the initial state before the first fetch.
     static let empty = ScanSummary(
@@ -173,13 +169,13 @@ public extension ScanSummary {
     )
 
     /// Cost for today (UTC day, matching the server's `byDay` keys), derived from `byDay`.
-    func costToday(calendar: Calendar = ScanSummary.utcCalendar, now: Date = Date()) -> Double {
+    func costToday(calendar: Calendar = ScanSummary.localCalendar, now: Date = Date()) -> Double {
         let key = Self.dayKey(for: now, calendar: calendar)
         return byDay.first { $0.key == key }?.costUsd ?? 0
     }
 
     /// The last `count` daily buckets (ascending), padded so the sparkline always has a full window.
-    func recentDays(_ count: Int, calendar: Calendar = ScanSummary.utcCalendar, now: Date = Date()) -> [GroupTotals] {
+    func recentDays(_ count: Int, calendar: Calendar = ScanSummary.localCalendar, now: Date = Date()) -> [GroupTotals] {
         var out: [GroupTotals] = []
         for offset in stride(from: count - 1, through: 0, by: -1) {
             guard let day = calendar.date(byAdding: .day, value: -offset, to: now) else { continue }

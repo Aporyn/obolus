@@ -48,7 +48,7 @@ struct BreakdownSection: View {
                         x: .value("Cost", row.costUsd),
                         y: .value(dimension.rawValue, row.key)
                     )
-                    .foregroundStyle(Color.accentColor.gradient)
+                    .foregroundStyle(Theme.accent3)
                     .annotation(position: .trailing, alignment: .leading) {
                         Text(Fmt.usd(row.costUsd)).font(.caption2).monospacedDigit().foregroundStyle(.secondary)
                     }

@@ -47,6 +47,11 @@ public enum Fmt {
         guard let date = isoParser.date(from: iso) ?? isoParserNoFraction.date(from: iso) else {
             return Self.day(iso)
         }
+        return clockTime(date)
+    }
+
+    /// A short local clock time (e.g. `14:32`) from a `Date`.
+    public static func clockTime(_ date: Date) -> String {
         let out = DateFormatter()
         out.dateFormat = "HH:mm"
         return out.string(from: date)

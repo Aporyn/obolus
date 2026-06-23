@@ -17,7 +17,7 @@ struct DailyTrendChart: View {
                     x: .value("Day", day.key),
                     y: .value("Cost", day.costUsd)
                 )
-                .foregroundStyle(Color.accentColor.gradient)
+                .foregroundStyle(Theme.accent2)
                 .cornerRadius(2)
             }
             .chartXAxis {
