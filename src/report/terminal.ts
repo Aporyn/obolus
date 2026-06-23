@@ -11,6 +11,8 @@ export interface RenderOptions {
   readonly repo: string | null;
   readonly branch: string | null;
   readonly model: string | null;
+  /** True when the local Claude Code history is empty (not just this filter). */
+  readonly noHistory?: boolean;
 }
 
 function fmtUsd(n: number): string {
@@ -18,9 +20,36 @@ function fmtUsd(n: number): string {
 }
 
 function fmtTokens(n: number): string {
+  if (n >= 1_000_000_000) return `${(n / 1_000_000_000).toFixed(1)}B`;
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
   if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`;
   return String(n);
+}
+
+/** Code points that occupy two terminal columns (CJK, Hangul, fullwidth, emoji). */
+function isWide(cp: number): boolean {
+  return (
+    (cp >= 0x1100 && cp <= 0x115f) ||
+    (cp >= 0x2e80 && cp <= 0x303e) ||
+    (cp >= 0x3041 && cp <= 0x33ff) ||
+    (cp >= 0x3400 && cp <= 0x4dbf) ||
+    (cp >= 0x4e00 && cp <= 0x9fff) ||
+    (cp >= 0xa000 && cp <= 0xa4cf) ||
+    (cp >= 0xac00 && cp <= 0xd7a3) ||
+    (cp >= 0xf900 && cp <= 0xfaff) ||
+    (cp >= 0xfe30 && cp <= 0xfe4f) ||
+    (cp >= 0xff00 && cp <= 0xff60) ||
+    (cp >= 0xffe0 && cp <= 0xffe6) ||
+    (cp >= 0x1f300 && cp <= 0x1faff) ||
+    (cp >= 0x20000 && cp <= 0x3fffd)
+  );
+}
+
+/** Display columns a string occupies in a monospace terminal. */
+export function displayWidth(s: string): number {
+  let w = 0;
+  for (const ch of s) w += isWide(ch.codePointAt(0) ?? 0) ? 2 : 1;
+  return w;
 }
 
 function pct(part: number, whole: number): string {
@@ -28,9 +57,19 @@ function pct(part: number, whole: number): string {
   return `${((100 * part) / whole).toFixed(0)}%`;
 }
 
-function pad(s: string, width: number): string {
-  if (s.length > width) return `${s.slice(0, width - 1)}…`;
-  return s.padEnd(width);
+export function pad(s: string, width: number): string {
+  const w = displayWidth(s);
+  if (w <= width) return s + ' '.repeat(width - w);
+  // Truncate by display width, leaving one column for the ellipsis.
+  let out = '';
+  let acc = 0;
+  for (const ch of s) {
+    const cw = displayWidth(ch);
+    if (acc + cw > width - 1) break;
+    out += ch;
+    acc += cw;
+  }
+  return `${out}…${' '.repeat(Math.max(0, width - acc - 1))}`;
 }
 
 function day(iso: string): string {
@@ -93,13 +132,34 @@ export function renderSummary(
   lines.push('');
 
   if (summary.totalRuns === 0) {
-    lines.push('  No runs match this scope.');
+    if (opts.noHistory) {
+      lines.push('  No Claude Code history found yet (looked in ~/.claude/projects).');
+      lines.push('');
+      lines.push("  Obolus reads Claude Code's own local transcripts — nothing to enable, no");
+      lines.push('  API key, no telemetry flag. Use Claude Code once, then run `obolus scan`');
+      lines.push('  again to see your spend across every repo, branch and commit.');
+    } else {
+      lines.push('  No runs match this scope. Widen the filters above, or run `obolus scan`');
+      lines.push('  with no flags to see your full history.');
+    }
     return lines.join('\n');
   }
 
   lines.push(
     `  Runs ${summary.totalRuns.toLocaleString()}   Tokens ${fmtTokens(summary.totalTokens)}   Est. cost ${fmtUsd(summary.totalCostUsd)}`,
   );
+
+  // The wedge in one line: persistent, cross-repo history that native /usage
+  // (24h/7d, single machine) cannot show.
+  const repos = summary.byRepo.length;
+  const sessions = summary.sessions.length;
+  const days = summary.byDay.map((d) => d.key).filter((k) => k !== 'unknown');
+  const reach = [
+    `${repos.toLocaleString()} ${repos === 1 ? 'repo' : 'repos'}`,
+    `${sessions.toLocaleString()} ${sessions === 1 ? 'session' : 'sessions'}`,
+  ];
+  if (days.length > 0) reach.push(`${days[0]} → ${days[days.length - 1]}`);
+  lines.push(`  Spanning ${reach.join(' · ')} — history /usage can't show`);
 
   const c = summary.composition;
   lines.push(

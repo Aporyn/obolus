@@ -196,9 +196,14 @@ async function runScan(rawArgs: readonly string[]): Promise<void> {
         repo: args.repo,
         branch: args.branch,
         model: args.model,
+        noHistory: events.length === 0,
       }),
     );
   }
+
+  // Nothing to persist when there is no history — avoid writing an empty ledger
+  // and claiming success on a brand-new user's first run.
+  if (events.length === 0) return;
 
   const path = await writeLedger(events, fullSummary);
   if (!args.json) console.log(`\nLedger written: ${path}`);
