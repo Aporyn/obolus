@@ -116,9 +116,9 @@ struct SpendByCommitSection: View {
 
     private var legend: some View {
         HStack(spacing: 16) {
-            label(color: .green, filled: true, text: "exact · live (watch)")
-            label(color: .orange, filled: false, text: "estimated · from git")
-            label(color: .secondary, filled: true, text: "unattributed")
+            label(color: Theme.exact, filled: true, text: "exact · live (watch)")
+            label(color: Theme.estimated, filled: false, text: "estimated · from git")
+            label(color: Theme.unattributed, filled: true, text: "unattributed")
             Spacer()
         }
         .font(.caption2).foregroundStyle(.secondary)
@@ -142,14 +142,14 @@ private struct ConfidenceDot: View {
         let isEstimated = commit.estimatedUsd > 0 && commit.exactUsd == 0
         Group {
             if commit.isUnattributed {
-                Circle().fill(Color.secondary.opacity(0.5))
+                Circle().fill(Theme.unattributed.opacity(0.5))
             } else if isExact {
-                Circle().fill(Color.green)
+                Circle().fill(Theme.exact)
             } else if isEstimated {
-                Circle().strokeBorder(Color.orange, lineWidth: 1.5)
+                Circle().strokeBorder(Theme.estimated, lineWidth: 1.5)
             } else {
                 // mixed exact + estimated
-                Circle().fill(Color.orange.opacity(0.6))
+                Circle().fill(Theme.estimated.opacity(0.6))
             }
         }
         .frame(width: 9, height: 9)

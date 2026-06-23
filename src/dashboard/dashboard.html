@@ -17,6 +17,10 @@
     --accent-2: #4f8a7b;
     --accent-3: #8aa9a0;
     --accent-4: #bcc8c2;
+    /* Shared semantic tokens — attribution provenance (see docs/design-tokens.md). */
+    --exact: #2f8a5b;
+    --estimated: #b9831f;
+    --unattributed: var(--faint);
     --serif: "Marcellus", "Noto Serif TC", Georgia, serif;
     --sans: "Urbanist", -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC", sans-serif;
     --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, "Cascadia Mono", monospace;
@@ -86,6 +90,28 @@
   .bar-fill { height: 100%; background: var(--accent); border-radius: 999px; transition: width 0.5s cubic-bezier(0.22,1,0.36,1); }
   .bar-val { font-family: var(--mono); font-size: 0.82rem; color: var(--accent); min-width: 4.5rem; text-align: right; }
   .bar-sub { color: var(--faint); }
+
+  .wedge { margin-bottom: 1rem; }
+  .wedge code { font-family: var(--mono); color: var(--accent); }
+  .commits { display: flex; flex-direction: column; }
+  .commit-row { display: grid; grid-template-columns: auto auto 1fr auto; align-items: center; gap: 0.6rem; padding: 0.45rem 0; border-top: 1px solid var(--hair); font-size: 0.85rem; }
+  .commit-row:first-child { border-top: 0; }
+  .commit-row.release { grid-template-columns: auto 1fr auto; padding: 0.55rem 0; }
+  .prov { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+  .prov.ex { background: var(--exact); }
+  .prov.est { border: 1.5px solid var(--estimated); }
+  .prov.mix { background: var(--estimated); opacity: 0.6; }
+  .prov.u { background: var(--unattributed); }
+  .csha { font-family: var(--mono); font-size: 0.76rem; color: var(--faint); }
+  .csub { color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .csub.faint { color: var(--faint); font-style: italic; }
+  .cc { font-family: var(--mono); color: var(--accent); white-space: nowrap; min-width: 4.6rem; text-align: right; }
+  .rel-pill { font-family: var(--mono); font-size: 0.66rem; color: var(--muted); background: var(--bg-deep); border-radius: 999px; padding: 0.05rem 0.42rem; margin-left: 0.4rem; }
+  .rtag { font-family: var(--mono); color: var(--ink); font-weight: 500; }
+  .rmeta { font-size: 0.78rem; color: var(--faint); }
+  .commit-legend { margin-top: 1rem; display: flex; flex-wrap: wrap; gap: 1.2rem; }
+  .commit-legend .leg { font-size: 0.78rem; color: var(--muted); }
+  .commit-legend .prov { display: inline-block; }
 
   .trend { display: flex; align-items: flex-end; gap: 4px; }
   .trend .col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 0.4rem; min-width: 0; }
@@ -189,6 +215,7 @@
   var summary = null;
   var sampleMode = false;
   var activeDim = "byRepo";
+  var commitMode = "commit";
 
   function kpis(s) {
     var todayKey = new Date().toISOString().slice(0, 10);
@@ -237,6 +264,44 @@
       '<div id="breakdownBars">' + barsHtml(s[activeDim]) + "</div></section>";
   }
 
+  function provClass(c) {
+    if (c.key === "(unattributed)") return "u";
+    var ex = c.exactUsd > 0 && c.estimatedUsd === 0;
+    var es = c.estimatedUsd > 0 && c.exactUsd === 0;
+    return ex ? "ex" : es ? "est" : "mix";
+  }
+  function commitRows(rows) {
+    if (!rows || !rows.length) return '<p class="live-empty">No commit attribution yet.</p>';
+    return '<div class="commits">' + rows.slice(0, 20).map(function (c) {
+      if (c.key === "(unattributed)")
+        return '<div class="commit-row"><span class="prov u"></span><span class="csha"></span><span class="csub faint">uncommitted / no git</span><span class="cc">' + fmtUsd(c.costUsd) + "</span></div>";
+      var rel = c.release ? ' <span class="rel-pill">' + esc(c.release) + "</span>" : "";
+      return '<div class="commit-row"><span class="prov ' + provClass(c) + '"></span><span class="csha">' + esc(c.key) +
+        '</span><span class="csub" title="' + esc(c.subject) + '">' + esc(c.subject || "—") + rel + '</span><span class="cc">' + fmtUsd(c.costUsd) + "</span></div>";
+    }).join("") + "</div>";
+  }
+  function releaseRows(rows) {
+    if (!rows || !rows.length) return '<p class="live-empty">No release attribution yet.</p>';
+    return '<div class="commits">' + rows.slice(0, 20).map(function (r) {
+      if (r.key === "(unattributed)")
+        return '<div class="commit-row release"><span class="rtag">(unattributed)</span><span class="rmeta"></span><span class="cc">' + fmtUsd(r.costUsd) + "</span></div>";
+      var span = r.firstCommitAt ? (day(r.firstCommitAt) === day(r.lastCommitAt) ? day(r.firstCommitAt) : day(r.firstCommitAt) + "→" + day(r.lastCommitAt)) : "—";
+      return '<div class="commit-row release"><span class="rtag">' + esc(r.key) + '</span><span class="rmeta">' + fmtInt(r.commitCount) + " commits · " + span + '</span><span class="cc">' + fmtUsd(r.costUsd) + "</span></div>";
+    }).join("") + "</div>";
+  }
+  function commits(s) {
+    var seg = '<span class="seg" id="commitSeg"><button data-cm="commit" aria-pressed="' + (commitMode === "commit") +
+      '">Commit</button><button data-cm="release" aria-pressed="' + (commitMode === "release") + '">Release</button></span>';
+    var body = '<div data-cm-pane="commit"' + (commitMode === "commit" ? "" : " hidden") + ">" + commitRows(s.byCommit) + "</div>" +
+      '<div data-cm-pane="release"' + (commitMode === "release" ? "" : " hidden") + ">" + releaseRows(s.byRelease) + "</div>";
+    return '<section class="block" id="commitBlock"><div class="block-head"><h2>Spend by commit / release</h2>' + seg + "</div>" +
+      '<p class="note wedge"><code>/usage</code> shows one machine total — Obolus prices every commit and release, with history.</p>' +
+      '<div id="commitBody">' + body + "</div>" +
+      '<div class="commit-legend"><span class="leg"><span class="prov ex"></span> exact · live</span>' +
+      '<span class="leg"><span class="prov est"></span> estimated · from git</span>' +
+      '<span class="leg"><span class="prov u"></span> unattributed</span></div></section>';
+  }
+
   function trend(s) {
     var days = (s.byDay || []).slice(-21);
     var max = days.reduce(function (m, d) { return Math.max(m, d.costUsd); }, 0) || 1;
@@ -276,7 +341,7 @@
       ? '<div class="amber">No pricing for: ' + s.unpricedModels.map(esc).join(", ") + ". Shown as $0."
       : "";
     if (amber) amber += "</div>";
-    app.innerHTML = banner + kpis(s) + amber + composition(s) +
+    app.innerHTML = banner + kpis(s) + amber + commits(s) + composition(s) +
       '<div class="cols"><div>' + breakdown(s) + "</div><div>" + trend(s) + "</div></div>" +
       '<div class="cols"><div>' + sessions(s) + "</div><div>" + livePanel() + "</div></div>";
 
@@ -288,6 +353,19 @@
         activeDim = b.getAttribute("data-dim");
         seg.querySelectorAll("button").forEach(function (x) { x.setAttribute("aria-pressed", x === b); });
         document.getElementById("breakdownBars").innerHTML = barsHtml(summary[activeDim]);
+      });
+    }
+
+    var cseg = document.getElementById("commitSeg");
+    if (cseg) {
+      cseg.addEventListener("click", function (e) {
+        var b = e.target.closest("button[data-cm]");
+        if (!b) return;
+        commitMode = b.getAttribute("data-cm");
+        cseg.querySelectorAll("button").forEach(function (x) { x.setAttribute("aria-pressed", x === b); });
+        document.querySelectorAll("#commitBody [data-cm-pane]").forEach(function (p) {
+          p.toggleAttribute("hidden", p.getAttribute("data-cm-pane") !== commitMode);
+        });
       });
     }
   }
@@ -337,6 +415,17 @@
         { key: "eff9b2e2-ntu", repo: "ntu", branch: null, firstSeen: "2026-05-29T10:00:00Z", lastSeen: "2026-06-02T20:00:00Z", costUsd: 370.40, totalTokens: 382300000, runs: 1367, hasUnpriced: false },
         { key: "166a8e20-hope", repo: "hope", branch: "main", firstSeen: "2026-06-11T08:00:00Z", lastSeen: "2026-06-13T22:00:00Z", costUsd: 256.47, totalTokens: 92100000, runs: 448, hasUnpriced: false },
         { key: "d13f4e92-aporyn", repo: "aporyn", branch: "main", firstSeen: "2026-06-22T09:00:00Z", lastSeen: "2026-06-22T23:00:00Z", costUsd: 108.88, totalTokens: 71200000, runs: 337, hasUnpriced: false }
+      ],
+      byCommit: [
+        { key: "6a39e9c1", runs: 148, totalTokens: 29000000, costUsd: 31.80, hasUnpriced: false, hasEstimated: false, subject: "feat: add native macOS menu bar app", committedAt: "2026-06-22T15:00:00Z", release: null, exactUsd: 0, estimatedUsd: 31.80 },
+        { key: "3f6d192f", runs: 90, totalTokens: 12300000, costUsd: 9.80, hasUnpriced: false, hasEstimated: false, subject: "feat: first-run onboarding, wedge banner", committedAt: "2026-06-21T12:00:00Z", release: "v0.4.2", exactUsd: 9.80, estimatedUsd: 0 },
+        { key: "98cd1b1a", runs: 40, totalTokens: 5400000, costUsd: 4.20, hasUnpriced: false, hasEstimated: false, subject: "fix: count agent cost per API request", committedAt: "2026-06-20T10:00:00Z", release: "v0.4.2", exactUsd: 0, estimatedUsd: 4.20 },
+        { key: "(unattributed)", runs: 7653, totalTokens: 2274400000, costUsd: 2475.43, hasUnpriced: false, hasEstimated: false, subject: "", committedAt: "", release: null, exactUsd: 0, estimatedUsd: 0 }
+      ],
+      byRelease: [
+        { key: "unreleased", runs: 148, totalTokens: 29000000, costUsd: 31.80, hasUnpriced: false, hasEstimated: false, firstCommitAt: "2026-06-22T15:00:00Z", lastCommitAt: "2026-06-22T15:00:00Z", commitCount: 1, exactUsd: 0, estimatedUsd: 31.80 },
+        { key: "v0.4.2", runs: 130, totalTokens: 17700000, costUsd: 14.00, hasUnpriced: false, hasEstimated: false, firstCommitAt: "2026-06-20T10:00:00Z", lastCommitAt: "2026-06-21T12:00:00Z", commitCount: 2, exactUsd: 9.80, estimatedUsd: 4.20 },
+        { key: "(unattributed)", runs: 7653, totalTokens: 2274400000, costUsd: 2475.43, hasUnpriced: false, hasEstimated: false, firstCommitAt: "", lastCommitAt: "", commitCount: 0, exactUsd: 0, estimatedUsd: 0 }
       ]
     },
     events: [
