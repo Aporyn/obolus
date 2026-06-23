@@ -5,3 +5,6 @@
 # Assembled app bundle (produced by build-app.sh)
 Obolus.app/
 *.app
+
+# Distributable disk image (ship via GitHub Releases, not git)
+*.dmg
