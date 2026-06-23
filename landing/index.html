@@ -351,6 +351,7 @@
     .t-branch { color: var(--teal-dim); }
     .t-hash   { color: var(--text-muted); }
     .t-label  { color: var(--gold-light); }
+    .t-wedge  { color: var(--teal); font-weight: 600; }
 
     .demo-note {
       margin-top: 16px;
@@ -733,7 +734,7 @@
         <p class="section-label">Example output</p>
         <h2 id="demo-heading">Your spend, attributed — in seconds</h2>
 
-        <div class="terminal-wrap" role="img" aria-label="Terminal showing Obolus scan output: 472 runs, 130.4M tokens, estimated cost $256.92 broken down by repo and top sessions">
+        <div class="terminal-wrap" role="img" aria-label="Terminal showing Obolus scan output: 516 runs, 123.3M tokens, estimated cost $155.39 across 2 repos and 7 sessions, with a cross-repo history summary native /usage cannot show, broken down by repo and top sessions">
           <div class="terminal-titlebar" aria-hidden="true">
             <span class="dot dot-red"></span>
             <span class="dot dot-yellow"></span>
@@ -741,19 +742,20 @@
             <span class="terminal-title">zsh — obolus scan</span>
           </div>
           <div class="terminal-body">
-            <pre><span class="t-prompt">$ </span><span class="t-cmd">npx obolus scan</span> <span class="t-flag">--since 7d</span>
+            <pre><span class="t-prompt">$ </span><span class="t-cmd">npx obolus scan</span>
 
 <span class="t-label">Obolus</span> <span class="t-header">— local AI coding-agent spend (Claude Code)</span>
-  <span class="t-scope">scope: since 2026-06-15</span>
 
-  <span class="t-key">Runs</span>  <span class="t-val">472</span>   <span class="t-key">Tokens</span>  <span class="t-val">130.4M</span>   <span class="t-key">Est. cost</span>  <span class="t-money">$256.92</span>
+  <span class="t-key">Runs</span>  <span class="t-val">516</span>   <span class="t-key">Tokens</span>  <span class="t-val">123.3M</span>   <span class="t-key">Est. cost</span>  <span class="t-money">$155.39</span>
+  <span class="t-muted">Spanning 2 repos · 2026-06-13 → 06-23 —</span> <span class="t-wedge">history /usage can't show</span>
 
 <span class="t-key">By repo:</span>
-  <span class="t-repo">aporyn        </span><span class="t-money">$232.65</span>   <span class="t-val">121.6M</span>   <span class="t-muted">405 runs</span>
-  <span class="t-repo">obolus        </span><span class="t-money"> $24.27</span>   <span class="t-val">  8.9M</span>   <span class="t-muted"> 67 runs</span>
+  <span class="t-repo">aporyn        </span><span class="t-money">$126.65</span>   <span class="t-val"> 93.9M</span>   <span class="t-muted">366 runs</span>
+  <span class="t-repo">obolus        </span><span class="t-money"> $28.74</span>   <span class="t-val"> 29.4M</span>   <span class="t-muted">150 runs</span>
 
 <span class="t-key">Top sessions by cost:</span>
-  <span class="t-branch">aporyn/main</span>  <span class="t-money">$171.26</span>  <span class="t-val">87.4M</span>  <span class="t-muted">245r</span>  <span class="t-muted">2026-06-17</span>  <span class="t-hash">2f4a45b0</span></pre>
+  <span class="t-branch">aporyn/main</span>  <span class="t-money">$50.56</span>  <span class="t-val">29.4M</span>  <span class="t-muted">81r</span>  <span class="t-muted">2026-06-17</span>  <span class="t-hash">2f4a45b0</span>
+  <span class="t-branch">obolus     </span>  <span class="t-money">$16.32</span>  <span class="t-val">19.2M</span>  <span class="t-muted">65r</span>  <span class="t-muted">2026-06-22</span>  <span class="t-hash">d13f4e92</span></pre>
           </div>
         </div>
 
