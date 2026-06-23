@@ -71,7 +71,13 @@ function lineToEvent(raw: RawLine): RunEvent | null {
   const cwd = raw.cwd ?? '';
   // 'HEAD' means detached HEAD — not a usable branch name.
   const branch = raw.gitBranch && raw.gitBranch !== 'HEAD' ? raw.gitBranch : null;
-  const id = raw.uuid ?? raw.requestId ?? `${raw.sessionId ?? 'unknown'}:${raw.timestamp ?? ''}`;
+  // The billable unit is the API request, not the transcript line. Claude Code
+  // writes one line per content block of an assistant turn (each text / tool_use
+  // block), and every line repeats the SAME message-level usage while getting a
+  // distinct uuid. Keying de-dup on requestId collapses a multi-block turn to a
+  // single counted run; without it the turn's cost is multiplied by its block
+  // count. Fall back to uuid (then session:timestamp) only when requestId is absent.
+  const id = raw.requestId ?? raw.uuid ?? `${raw.sessionId ?? 'unknown'}:${raw.timestamp ?? ''}`;
 
   return {
     id,

@@ -22,7 +22,11 @@ export interface TokenUsage {
  * This is the atomic ledger record — metadata only.
  */
 export interface RunEvent {
-  /** Stable id used for de-duplication (message uuid, falling back to request id). */
+  /**
+   * Stable id used for de-duplication, identifying the billable unit (the API
+   * request). Prefers `requestId`; falls back to the message uuid, then
+   * `sessionId:timestamp`, only when no request id is present.
+   */
   readonly id: string;
   readonly vendor: Vendor;
   readonly model: string;
