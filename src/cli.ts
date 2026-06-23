@@ -106,7 +106,8 @@ function parseServeArgs(argv: readonly string[]): ServeArgs {
     if (flag === '--port') {
       const n = Number(inline ?? argv[i + 1] ?? '');
       if (inline === null) i += 1;
-      if (Number.isFinite(n) && n > 0) args.port = Math.floor(n);
+      // Allow 0 to request an ephemeral port (the OS picks a free one).
+      if (Number.isFinite(n) && n >= 0) args.port = Math.floor(n);
     } else if (flag === '--open') {
       args.open = true;
     }

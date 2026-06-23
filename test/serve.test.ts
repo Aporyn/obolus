@@ -1,9 +1,9 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { mkdtemp, mkdir, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { AddressInfo } from 'node:net';
-import { createDashboardServer } from '../src/dashboard/serve.js';
+import { createDashboardServer, runServe, readyLine } from '../src/dashboard/serve.js';
 
 async function fixtureRoot(): Promise<string> {
   const root = await mkdtemp(join(tmpdir(), 'obolus-serve-'));
@@ -46,6 +46,45 @@ describe('dashboard server', () => {
       expect(missing.status).toBe(404);
     } finally {
       server.close();
+    }
+  });
+
+  it('readyLine emits a parseable JSON readiness record', () => {
+    const parsed = JSON.parse(readyLine(54321));
+    expect(parsed).toEqual({
+      obolusServe: 'ready',
+      url: 'http://127.0.0.1:54321',
+      port: 54321,
+    });
+  });
+
+  it('runServe binds an ephemeral port and prints the ready line when opted in', async () => {
+    const root = await fixtureRoot();
+    const logs: string[] = [];
+    const spy = vi.spyOn(console, 'log').mockImplementation((...args: unknown[]) => {
+      logs.push(args.map(String).join(' '));
+    });
+    const prev = process.env.OBOLUS_SERVE_READY_JSON;
+    process.env.OBOLUS_SERVE_READY_JSON = '1';
+    const server = await runServe({ port: 0, root });
+    try {
+      const { port } = server.address() as AddressInfo;
+      expect(port).toBeGreaterThan(0);
+
+      const ready = logs.map((l) => l.trim()).find((l) => l.includes('"obolusServe"'));
+      expect(ready).toBeDefined();
+      const parsed = JSON.parse(ready as string);
+      expect(parsed.obolusServe).toBe('ready');
+      expect(parsed.port).toBe(port);
+      expect(parsed.url).toBe(`http://127.0.0.1:${port}`);
+
+      const summary = await fetch(`${parsed.url}/api/summary`).then((r) => r.json());
+      expect(summary.totalRuns).toBe(1);
+    } finally {
+      server.close();
+      spy.mockRestore();
+      if (prev === undefined) delete process.env.OBOLUS_SERVE_READY_JSON;
+      else process.env.OBOLUS_SERVE_READY_JSON = prev;
     }
   });
 });

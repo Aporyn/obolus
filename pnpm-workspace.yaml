@@ -1,0 +1,6 @@
+# The repo root stays the publishable MIT CLI (`obolus`). `apps/*` holds local,
+# observe-only UI surfaces (e.g. the macOS menu bar app). The npm package only
+# ships `dist` (see package.json "files"), so nothing under apps/ is published.
+packages:
+  - '.'
+  - 'apps/*'

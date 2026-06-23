@@ -1,0 +1,7 @@
+# SwiftPM build output
+.build/
+.swiftpm/
+
+# Assembled app bundle (produced by build-app.sh)
+Obolus.app/
+*.app
