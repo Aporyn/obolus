@@ -2,18 +2,29 @@
 # Build Obolus.app from the SwiftPM executable (no Xcode required — uses `swift build`).
 #
 # Usage:
-#   ./build-app.sh                 # build the .app; backend resolved at runtime (env/npx)
-#   ./build-app.sh --bundle-runtime  # also embed node + the obolus CLI dist into the .app
+#   ./build-app.sh                            # build the .app; backend resolved at runtime (env/npx)
+#   ./build-app.sh --bundle-runtime           # also embed node + the obolus CLI dist into the .app
+#   ./build-app.sh --bundle-runtime --install # build, then clean-install to /Applications + relaunch
 #
 # The bundled-runtime form is self-contained: it runs even if the user has no global obolus.
+# --install does a *clean* replace (removes the old bundle first) so a stale bundled dist can never
+# survive a partial overwrite — the failure mode where a new binary meets an old serve.
 set -euo pipefail
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$HERE/../.." && pwd)"
 APP="$HERE/Obolus.app"
+INSTALL_DEST="/Applications/Obolus.app"
 CONFIG=release
 BUNDLE_RUNTIME=0
-[[ "${1:-}" == "--bundle-runtime" ]] && BUNDLE_RUNTIME=1
+INSTALL=0
+for arg in "$@"; do
+  case "$arg" in
+    --bundle-runtime) BUNDLE_RUNTIME=1 ;;
+    --install) INSTALL=1 ;;
+    *) echo "unknown option: $arg" >&2; exit 2 ;;
+  esac
+done
 
 echo "› swift build -c $CONFIG"
 ( cd "$HERE" && swift build -c "$CONFIG" )
@@ -54,5 +65,22 @@ if [[ "$BUNDLE_RUNTIME" == "1" ]]; then
 fi
 
 echo "› done: $APP"
-echo "  run: open '$APP'   (or, for dev with the workspace build:)"
-echo "  OBOLUS_NODE=\$(which node) OBOLUS_DIST='$REPO_ROOT/dist' '$APP/Contents/MacOS/Obolus'"
+
+if [[ "$INSTALL" == "1" ]]; then
+  echo "› installing to $INSTALL_DEST"
+  # Quit any running instance (the app + its embedded serve) so files release and `open` can't
+  # just re-foreground a stale process. Matches "Obolus.app" only — leaves a global `obolus`
+  # CLI serve untouched.
+  if pkill -f "Obolus.app" 2>/dev/null; then
+    echo "  quit running Obolus"
+    sleep 1
+  fi
+  # Clean replace — remove the old bundle entirely, then copy fresh (no merge leftovers).
+  rm -rf "$INSTALL_DEST"
+  ditto "$APP" "$INSTALL_DEST"
+  echo "  installed → $INSTALL_DEST"
+  open "$INSTALL_DEST" && echo "  relaunched"
+else
+  echo "  run: open '$APP'   (or, for dev with the workspace build:)"
+  echo "  OBOLUS_NODE=\$(which node) OBOLUS_DIST='$REPO_ROOT/dist' '$APP/Contents/MacOS/Obolus'"
+fi
