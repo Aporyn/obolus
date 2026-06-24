@@ -126,6 +126,40 @@ describe('scanTranscripts', () => {
     expect(events[0]?.usage.outputTokens).toBe(80);
   });
 
+  it('reads server_tool_use request counts (web search / fetch) onto the event', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'obolus-'));
+    const project = join(root, 'proj');
+    await mkdir(project, { recursive: true });
+    await writeFile(
+      join(project, 'srv.jsonl'),
+      `${assistantLine({
+        requestId: 'r-srv',
+        usage: {
+          input_tokens: 100,
+          output_tokens: 50,
+          server_tool_use: { web_search_requests: 3, web_fetch_requests: 2 },
+        },
+      })}\n`,
+      'utf8',
+    );
+    const events = await scanTranscripts(root);
+    expect(events[0]?.serverTools.webSearchRequests).toBe(3);
+    expect(events[0]?.serverTools.webFetchRequests).toBe(2);
+  });
+
+  it('defaults server-tool counts to zero when the field is absent', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'obolus-'));
+    const project = join(root, 'proj');
+    await mkdir(project, { recursive: true });
+    await writeFile(
+      join(project, 'plain.jsonl'),
+      `${assistantLine({ requestId: 'r-plain', usage: { input_tokens: 10 } })}\n`,
+      'utf8',
+    );
+    const events = await scanTranscripts(root);
+    expect(events[0]?.serverTools).toEqual({ webSearchRequests: 0, webFetchRequests: 0 });
+  });
+
   it('treats detached HEAD as no branch', async () => {
     const root = await mkdtemp(join(tmpdir(), 'obolus-'));
     const project = join(root, 'proj');

@@ -35,12 +35,14 @@ export interface RunRef {
   readonly isSidechain: boolean;
 }
 
-/** Where the money went, split by token class. */
+/** Where the money went, split by cost component. */
 export interface CostComposition {
   readonly inputUsd: number;
   readonly outputUsd: number;
   readonly cacheReadUsd: number;
   readonly cacheWriteUsd: number;
+  /** Separately-billed server tools (web search). */
+  readonly serverToolUsd: number;
 }
 
 /**
@@ -386,7 +388,7 @@ export function summarize(
 ): ScanSummary {
   const priced: PricedRun[] = events.map((event) => ({
     event,
-    cost: priceRun(event.model, event.usage, table),
+    cost: priceRun(event.model, event.usage, table, event.serverTools),
     tokens: tokensOf(event.usage),
   }));
 
@@ -394,7 +396,13 @@ export function summarize(
   const estimated = new Set<string>();
   let totalCostUsd = 0;
   let totalTokens = 0;
-  const composition = { inputUsd: 0, outputUsd: 0, cacheReadUsd: 0, cacheWriteUsd: 0 };
+  const composition = {
+    inputUsd: 0,
+    outputUsd: 0,
+    cacheReadUsd: 0,
+    cacheWriteUsd: 0,
+    serverToolUsd: 0,
+  };
 
   for (const run of priced) {
     if (!run.cost.priced) unpriced.add(run.event.model);
@@ -405,6 +413,7 @@ export function summarize(
     composition.outputUsd += run.cost.outputUsd;
     composition.cacheReadUsd += run.cost.cacheReadUsd;
     composition.cacheWriteUsd += run.cost.cacheWriteUsd;
+    composition.serverToolUsd += run.cost.serverToolUsd;
   }
 
   const topRuns: RunRef[] = [...priced]

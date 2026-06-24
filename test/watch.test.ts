@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { mkdtemp, mkdir, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { takeCompleteLines, tailRuns } from '../src/collector/tailer.js';
+import { takeCompleteLines, tailRuns, type LiveRun } from '../src/collector/tailer.js';
 import { currentCommit } from '../src/collector/git.js';
 
 describe('takeCompleteLines', () => {
@@ -82,5 +82,56 @@ describe('tailRuns — live subagent discovery', () => {
     await running;
 
     expect(seen).toContain('req-sa1');
+  });
+
+  it('prices separately-billed server tools into the live run cost', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'obolus-tail-'));
+    const project = join(root, '-Users-x-repoA');
+    await mkdir(project, { recursive: true });
+    await writeFile(join(project, 'sess.jsonl'), '', 'utf8');
+
+    const runs: LiveRun[] = [];
+    let stop = false;
+    const running = tailRuns(
+      root,
+      (run) => {
+        runs.push(run);
+      },
+      () => stop,
+      { pollMs: 5 },
+    );
+
+    await new Promise((r) => setTimeout(r, 40));
+
+    await writeFile(
+      join(project, 'sess.jsonl'),
+      `${JSON.stringify({
+        type: 'assistant',
+        uuid: 'srv1',
+        requestId: 'req-srv1',
+        cwd: '/Users/x/repoA',
+        sessionId: 'sess',
+        timestamp: '2026-06-23T20:00:00Z',
+        message: {
+          model: 'claude-opus-4-8',
+          usage: {
+            input_tokens: 100,
+            output_tokens: 50,
+            server_tool_use: { web_search_requests: 4, web_fetch_requests: 0 },
+          },
+        },
+      })}\n`,
+      'utf8',
+    );
+
+    const deadline = Date.now() + 2000;
+    while (runs.length === 0 && Date.now() < deadline) {
+      await new Promise((r) => setTimeout(r, 10));
+    }
+    stop = true;
+    await running;
+
+    // 4 web searches × $0.01 = $0.04, billed on top of the token cost.
+    expect(runs[0]?.cost.serverToolUsd).toBeCloseTo(0.04);
   });
 });

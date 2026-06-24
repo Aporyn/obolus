@@ -6,14 +6,16 @@ import Foundation
 // Keep field names in sync with the TS interfaces — the app must not diverge from the
 // collector's aggregation.
 
-/// Where the money went, split by token class. Mirrors `CostComposition`.
+/// Where the money went, split by cost component. Mirrors `CostComposition`.
 public struct CostComposition: Codable, Equatable, Sendable {
     public let inputUsd: Double
     public let outputUsd: Double
     public let cacheReadUsd: Double
     public let cacheWriteUsd: Double
+    /// Separately-billed server tools (web search). Counted on top of token cost.
+    public let serverToolUsd: Double
 
-    public var totalUsd: Double { inputUsd + outputUsd + cacheReadUsd + cacheWriteUsd }
+    public var totalUsd: Double { inputUsd + outputUsd + cacheReadUsd + cacheWriteUsd + serverToolUsd }
 }
 
 /// Rolled-up totals for one grouping key (a repo, model, branch, day, ...). Mirrors `GroupTotals`.
@@ -153,7 +155,7 @@ public extension ScanSummary {
         totalRuns: 0,
         totalTokens: 0,
         totalCostUsd: 0,
-        composition: CostComposition(inputUsd: 0, outputUsd: 0, cacheReadUsd: 0, cacheWriteUsd: 0),
+        composition: CostComposition(inputUsd: 0, outputUsd: 0, cacheReadUsd: 0, cacheWriteUsd: 0, serverToolUsd: 0),
         unpricedModels: [],
         estimatedModels: [],
         byRepo: [],

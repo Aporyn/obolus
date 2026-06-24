@@ -34,6 +34,7 @@ function makeEvent(over: Partial<RunEvent> = {}): RunEvent {
     timestamp: over.timestamp ?? '2026-05-01T00:00:00Z',
     toolVersion: null,
     isSidechain: over.isSidechain ?? false,
+    serverTools: over.serverTools ?? { webSearchRequests: 0, webFetchRequests: 0 },
   };
 }
 
@@ -65,6 +66,18 @@ describe('renderSummary', () => {
     expect(out).toContain('2 sessions');
     expect(out).toContain('2026-05-01 → 2026-06-10');
     expect(out).toContain("history /usage can't show");
+  });
+
+  it('surfaces separately-billed server-tool spend when present', () => {
+    const event = makeEvent({ serverTools: { webSearchRequests: 100, webFetchRequests: 0 } });
+    const out = renderSummary(summarize([event], ANTHROPIC_PRICING), ANTHROPIC_PRICING, BASE_OPTS);
+    // 100 web searches × $0.01 = $1.00.
+    expect(out).toContain('server tools $1.00');
+  });
+
+  it('omits the server-tool line when no server tools were used', () => {
+    const out = renderSummary(summarize([makeEvent()], ANTHROPIC_PRICING), ANTHROPIC_PRICING, BASE_OPTS);
+    expect(out).not.toContain('server tools');
   });
 
   it('formats billions of tokens with a B suffix', () => {

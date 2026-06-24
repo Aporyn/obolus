@@ -10,6 +10,7 @@ const table: PricingTable = {
   asOf: 'test',
   source: 'test',
   currency: 'USD',
+  serverTools: { webSearchPerRequest: 0.01, webFetchPerRequest: 0, verified: true },
   models: {
     known: {
       input: 3,
@@ -46,6 +47,7 @@ function ev(over: Partial<RunEvent> = {}): RunEvent {
     timestamp: '2026-06-01T00:00:00Z',
     toolVersion: null,
     isSidechain: false,
+    serverTools: { webSearchRequests: 0, webFetchRequests: 0 },
     ...over,
   };
 }
@@ -139,6 +141,21 @@ describe('summarize', () => {
     expect(s.topRuns[0]?.costUsd).toBeGreaterThan(s.topRuns[1]?.costUsd ?? 0);
     expect(s.composition.outputUsd).toBeCloseTo(15);
     expect(s.composition.inputUsd).toBeCloseTo(0.003);
+  });
+
+  it('includes separately-billed server-tool cost in totals and composition', () => {
+    // ONE_M_INPUT → $3 token cost; 10 web searches × $0.01 = $0.10 on top.
+    const s = summarize(
+      [ev({ serverTools: { webSearchRequests: 10, webFetchRequests: 0 } })],
+      table,
+    );
+    expect(s.composition.serverToolUsd).toBeCloseTo(0.1);
+    expect(s.totalCostUsd).toBeCloseTo(3.1);
+    // Composition (now including server tools) still reconciles to the total.
+    const c = s.composition;
+    expect(c.inputUsd + c.outputUsd + c.cacheReadUsd + c.cacheWriteUsd + c.serverToolUsd).toBeCloseTo(
+      s.totalCostUsd,
+    );
   });
 
   it('flags unpriced models and excludes them from cost', () => {

@@ -22,6 +22,7 @@ function ev(over: Partial<RunEvent>): RunEvent {
     timestamp: '2026-06-10T00:00:00Z',
     toolVersion: null,
     isSidechain: false,
+    serverTools: { webSearchRequests: 0, webFetchRequests: 0 },
     ...over,
   };
 }

@@ -195,8 +195,11 @@ export function renderSummary(
   lines.push(`  Spanning ${reach.join(' · ')} — history /usage can't show`);
 
   const c = summary.composition;
+  // Server tools (web search) are billed separately from tokens; only surface the
+  // segment when some were actually used, to keep the common case uncluttered.
+  const serverTools = c.serverToolUsd > 0 ? ` · server tools ${fmtUsd(c.serverToolUsd)}` : '';
   lines.push(
-    `  Where it goes: input ${fmtUsd(c.inputUsd)} · output ${fmtUsd(c.outputUsd)} · cache-read ${fmtUsd(c.cacheReadUsd)} · cache-write ${fmtUsd(c.cacheWriteUsd)}`,
+    `  Where it goes: input ${fmtUsd(c.inputUsd)} · output ${fmtUsd(c.outputUsd)} · cache-read ${fmtUsd(c.cacheReadUsd)} · cache-write ${fmtUsd(c.cacheWriteUsd)}${serverTools}`,
   );
   const subagent = summary.byKind.find((k) => k.key === 'subagent');
   if (subagent) {

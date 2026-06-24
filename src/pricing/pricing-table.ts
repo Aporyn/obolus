@@ -1,4 +1,4 @@
-import type { ModelRates, PricingTable } from '../domain/types.js';
+import type { ModelRates, PricingTable, ServerToolRates } from '../domain/types.js';
 
 // Anthropic published rates, USD per 1,000,000 tokens.
 // Source: https://platform.claude.com/docs/en/about-claude/pricing (fetched 2026-06-23).
@@ -24,10 +24,21 @@ function frontier5(): ModelRates {
   return { input: 10, output: 50, cacheRead: 1, cacheWrite5m: 12.5, cacheWrite1h: 20, verified: true };
 }
 
+// Server-tool per-request rates (billed on top of token costs).
+//   - web search: $10 / 1,000 searches = $0.01 / request.
+//   - web fetch:  no additional charge — you pay only for the fetched tokens
+//     (already counted as input). Kept at 0 so the count is carried for audit
+//     without inventing a charge.
+// Source: web-search-tool / web-fetch-tool docs §"Usage and pricing" (fetched 2026-06-24).
+function serverTools(): ServerToolRates {
+  return { webSearchPerRequest: 0.01, webFetchPerRequest: 0, verified: true };
+}
+
 export const ANTHROPIC_PRICING: PricingTable = {
   asOf: '2026-06-23',
   source: 'https://platform.claude.com/docs/en/about-claude/pricing',
   currency: 'USD',
+  serverTools: serverTools(),
   models: {
     // Frontier 5 family
     'claude-fable-5': frontier5(),

@@ -3,7 +3,7 @@ import type { Dirent } from 'node:fs';
 import { readdir } from 'node:fs/promises';
 import { createInterface } from 'node:readline';
 import { join } from 'node:path';
-import type { RunEvent, TokenUsage } from '../domain/types.js';
+import type { RunEvent, ServerToolUse, TokenUsage } from '../domain/types.js';
 import { claudeProjectsDir, repoLabelFromCwd } from './paths.js';
 
 /** Shape of the fields Obolus reads from a Claude Code transcript line. */
@@ -15,6 +15,10 @@ interface RawUsage {
   cache_creation?: {
     ephemeral_5m_input_tokens?: number;
     ephemeral_1h_input_tokens?: number;
+  };
+  server_tool_use?: {
+    web_search_requests?: number;
+    web_fetch_requests?: number;
   };
 }
 
@@ -29,6 +33,14 @@ interface RawLine {
   version?: string;
   isSidechain?: boolean;
   message?: { model?: string; usage?: RawUsage };
+}
+
+function toServerTools(u: RawUsage): ServerToolUse {
+  const s = u.server_tool_use;
+  return {
+    webSearchRequests: s?.web_search_requests ?? 0,
+    webFetchRequests: s?.web_fetch_requests ?? 0,
+  };
 }
 
 function toUsage(u: RawUsage): TokenUsage {
@@ -93,6 +105,7 @@ function lineToEvent(raw: RawLine): RunEvent | null {
     timestamp: raw.timestamp ?? '',
     toolVersion: raw.version ?? null,
     isSidechain: raw.isSidechain ?? false,
+    serverTools: toServerTools(msg.usage),
   };
 }
 

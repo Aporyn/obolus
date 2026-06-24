@@ -18,6 +18,7 @@ function ev(p: { id: string; timestamp: string; repoPath?: string; branch?: stri
     timestamp: p.timestamp,
     toolVersion: null,
     isSidechain: false,
+    serverTools: { webSearchRequests: 0, webFetchRequests: 0 },
   };
 }
 

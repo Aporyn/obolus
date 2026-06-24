@@ -112,7 +112,7 @@ export async function tailRuns(
         const event = parseRunLine(line);
         if (!event || seen.has(event.id)) continue;
         seen.add(event.id);
-        const cost = priceRun(event.model, event.usage, ANTHROPIC_PRICING);
+        const cost = priceRun(event.model, event.usage, ANTHROPIC_PRICING, event.serverTools);
         const commit = currentCommit(event.repoPath);
         await onRun({ event, cost, commit, tokens: tokensOf(event.usage) });
       }

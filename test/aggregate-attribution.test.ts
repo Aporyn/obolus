@@ -18,6 +18,7 @@ function ev(id: string, timestamp: string): RunEvent {
     timestamp,
     toolVersion: null,
     isSidechain: false,
+    serverTools: { webSearchRequests: 0, webFetchRequests: 0 },
   };
 }
 

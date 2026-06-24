@@ -8,7 +8,7 @@ final class ModelsTests: XCTestCase {
       "totalRuns": 3,
       "totalTokens": 1500,
       "totalCostUsd": 12.5,
-      "composition": {"inputUsd": 1.0, "outputUsd": 2.0, "cacheReadUsd": 4.0, "cacheWriteUsd": 5.5},
+      "composition": {"inputUsd": 1.0, "outputUsd": 2.0, "cacheReadUsd": 4.0, "cacheWriteUsd": 5.0, "serverToolUsd": 0.5},
       "unpricedModels": [],
       "estimatedModels": ["claude-fable-5"],
       "byRepo": [{"key":"obolus","runs":3,"inputTokens":100,"outputTokens":200,"cacheTokens":300,"totalTokens":1500,"costUsd":12.5,"hasUnpriced":false,"hasEstimated":true}],
@@ -34,6 +34,8 @@ final class ModelsTests: XCTestCase {
         XCTAssertEqual(summary.totalRuns, 3)
         XCTAssertEqual(summary.totalCostUsd, 12.5, accuracy: 1e-9)
         XCTAssertEqual(summary.composition.totalUsd, 12.5, accuracy: 1e-9)
+        // Separately-billed server tools decode and fold into the composition total.
+        XCTAssertEqual(summary.composition.serverToolUsd, 0.5, accuracy: 1e-9)
         XCTAssertEqual(summary.byRepo.first?.key, "obolus")
         XCTAssertTrue(summary.byRepo.first?.hasEstimated == true)
         XCTAssertNil(summary.sessions.first?.branch)

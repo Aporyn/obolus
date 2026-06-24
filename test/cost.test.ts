@@ -42,6 +42,7 @@ describe('priceRun', () => {
     asOf: '2026-01-01',
     source: 'test',
     currency: 'USD',
+    serverTools: { webSearchPerRequest: 0.01, webFetchPerRequest: 0, verified: true },
     models: { 'model-a': rates },
   };
 
@@ -55,5 +56,54 @@ describe('priceRun', () => {
     const c = priceRun('model-a', oneMillionEach, table);
     expect(c.priced).toBe(true);
     expect(c.totalUsd).toBeGreaterThan(0);
+  });
+
+  it('adds web-search requests on top of token cost (billed per request)', () => {
+    const noTools = priceRun('model-a', oneMillionEach, table);
+    const withSearch = priceRun('model-a', oneMillionEach, table, {
+      webSearchRequests: 5,
+      webFetchRequests: 0,
+    });
+    // $10 / 1,000 searches = $0.01 each → 5 searches = $0.05 above the token cost.
+    expect(withSearch.serverToolUsd).toBeCloseTo(0.05);
+    expect(withSearch.totalUsd).toBeCloseTo(noTools.totalUsd + 0.05);
+  });
+
+  it('charges nothing extra for web-fetch requests (token-only today)', () => {
+    const c = priceRun('model-a', oneMillionEach, table, {
+      webSearchRequests: 0,
+      webFetchRequests: 9,
+    });
+    expect(c.serverToolUsd).toBe(0);
+  });
+
+  it('defaults to zero server-tool cost when no server tools are passed', () => {
+    const c = priceRun('model-a', oneMillionEach, table);
+    expect(c.serverToolUsd).toBe(0);
+  });
+
+  it('does not price server tools for an unknown (unpriced) model', () => {
+    const c = priceRun('unknown', oneMillionEach, table, {
+      webSearchRequests: 5,
+      webFetchRequests: 0,
+    });
+    expect(c.priced).toBe(false);
+    expect(c.serverToolUsd).toBe(0);
+    expect(c.totalUsd).toBe(0);
+  });
+
+  it('flags estimated when a server tool was used at an unverified rate', () => {
+    const unverified: PricingTable = {
+      ...table,
+      serverTools: { webSearchPerRequest: 0.01, webFetchPerRequest: 0, verified: false },
+    };
+    const used = priceRun('model-a', oneMillionEach, unverified, {
+      webSearchRequests: 1,
+      webFetchRequests: 0,
+    });
+    expect(used.estimated).toBe(true);
+    // A run that used no server tools is unaffected by the unverified server-tool rate.
+    const unused = priceRun('model-a', oneMillionEach, unverified);
+    expect(unused.estimated).toBe(false);
   });
 });
