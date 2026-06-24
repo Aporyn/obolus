@@ -1,6 +1,6 @@
 {
   "name": "obolus",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "description": "Observability for AI coding-agent spend — see what each PR, repo, and developer actually costs.",
   "type": "module",
   "license": "MIT",
