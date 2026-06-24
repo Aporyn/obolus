@@ -178,7 +178,7 @@ public extension ScanSummary {
         byRelease: []
     )
 
-    /// Cost for today (UTC day, matching the server's `byDay` keys), derived from `byDay`.
+    /// Cost for today (local day, matching the server's local-timezone `byDay` keys), from `byDay`.
     func costToday(calendar: Calendar = ScanSummary.localCalendar, now: Date = Date()) -> Double {
         let key = Self.dayKey(for: now, calendar: calendar)
         return byDay.first { $0.key == key }?.costUsd ?? 0

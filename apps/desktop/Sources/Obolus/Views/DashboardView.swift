@@ -32,7 +32,9 @@ struct DashboardView: View {
                         SpendByCommitSection(summary: displayed)
                         CompositionBar(composition: displayed.composition)
                         BreakdownSection(summary: displayed)
-                        DailyTrendChart(summary: displayed)
+                        // Trend stays on the all-time summary: a ~21-day daily trend is inherently
+                        // multi-day, so a narrow window (1d/7d) shouldn't collapse it to empty bars.
+                        DailyTrendChart(summary: store.summary)
                         SessionsTable(sessions: displayed.sessions)
                     }
 
