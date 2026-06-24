@@ -150,6 +150,14 @@ public extension ScanSummary {
     /// so day-key lookups use the device's current calendar to match `/api/summary` exactly.
     static var localCalendar: Calendar { Calendar.current }
 
+    /// A fixed UTC calendar. Production day-bucket lookups use `localCalendar`; tests use this to
+    /// make day-key math deterministic regardless of the machine's timezone.
+    static var utcCalendar: Calendar {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "UTC") ?? .current
+        return calendar
+    }
+
     /// An empty summary used as the initial state before the first fetch.
     static let empty = ScanSummary(
         totalRuns: 0,

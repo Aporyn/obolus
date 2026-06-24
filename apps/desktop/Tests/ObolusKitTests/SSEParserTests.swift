@@ -34,10 +34,11 @@ final class SSEParserTests: XCTestCase {
 
     func testDecodesLiveRunEvent() {
         var parser = SSEParser()
-        let json = """
-        data: {"repo":"obolus","branch":null,"commit":null,"model":"claude-opus-4-8","costUsd":0.12,"tokens":1500,"timestamp":"2026-06-23T14:00:00Z","isSidechain":false,"runningUsd":0.12,"runningRuns":1}
-
-        """
+        // SSE frames terminate on a blank line, so the payload must end with "\n\n".
+        let json = "data: {\"repo\":\"obolus\",\"branch\":null,\"commit\":null,"
+            + "\"model\":\"claude-opus-4-8\",\"costUsd\":0.12,\"tokens\":1500,"
+            + "\"timestamp\":\"2026-06-23T14:00:00Z\",\"isSidechain\":false,"
+            + "\"runningUsd\":0.12,\"runningRuns\":1}\n\n"
         let payloads = parser.feed(json)
         XCTAssertEqual(payloads.count, 1)
         let event = try! JSONDecoder().decode(LiveRunEvent.self, from: payloads[0].data(using: .utf8)!)

@@ -47,13 +47,13 @@ final class ModelsTests: XCTestCase {
         let summary = try JSONDecoder().decode(ScanSummary.self, from: Data(summaryJSON.utf8))
 
         XCTAssertEqual(summary.byCommit.count, 2)
-        let first = summary.byCommit.first
-        XCTAssertEqual(first?.key, "aaaaaaaa")
-        XCTAssertEqual(first?.subject, "first")
-        XCTAssertEqual(first?.release, "v1")
-        XCTAssertEqual(first?.exactUsd, 4.0, accuracy: 1e-9)
-        XCTAssertEqual(first?.estimatedUsd, 5.0, accuracy: 1e-9)
-        XCTAssertFalse(first?.isUnattributed ?? true)
+        let first = try XCTUnwrap(summary.byCommit.first)
+        XCTAssertEqual(first.key, "aaaaaaaa")
+        XCTAssertEqual(first.subject, "first")
+        XCTAssertEqual(first.release, "v1")
+        XCTAssertEqual(first.exactUsd, 4.0, accuracy: 1e-9)
+        XCTAssertEqual(first.estimatedUsd, 5.0, accuracy: 1e-9)
+        XCTAssertFalse(first.isUnattributed)
         XCTAssertTrue(summary.byCommit.last?.isUnattributed ?? false)
 
         // Conservation: per-commit costs sum to the total.
@@ -70,7 +70,7 @@ final class ModelsTests: XCTestCase {
         let cal = ScanSummary.utcCalendar
         let now = cal.date(from: DateComponents(timeZone: TimeZone(identifier: "UTC"),
                                                 year: 2026, month: 6, day: 23, hour: 23, minute: 30))!
-        XCTAssertEqual(summary.costToday(now: now), 9.0, accuracy: 1e-9)
+        XCTAssertEqual(summary.costToday(calendar: cal, now: now), 9.0, accuracy: 1e-9)
     }
 
     func testRecentDaysPadsMissingDays() throws {
@@ -78,10 +78,10 @@ final class ModelsTests: XCTestCase {
         let cal = ScanSummary.utcCalendar
         let now = cal.date(from: DateComponents(timeZone: TimeZone(identifier: "UTC"),
                                                 year: 2026, month: 6, day: 23, hour: 12))!
-        let days = summary.recentDays(7, now: now)
+        let days = summary.recentDays(7, calendar: cal, now: now)
         XCTAssertEqual(days.count, 7)
         XCTAssertEqual(days.last?.key, "2026-06-23")          // today present
-        XCTAssertEqual(days.last?.costUsd, 9.0, accuracy: 1e-9)
+        XCTAssertEqual(try XCTUnwrap(days.last).costUsd, 9.0, accuracy: 1e-9)
         XCTAssertEqual(days.first?.key, "2026-06-17")          // padded zero day
         XCTAssertEqual(days.first?.costUsd, 0)
     }
