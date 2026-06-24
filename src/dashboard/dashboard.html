@@ -291,6 +291,25 @@
       '<div class="comp-bar">' + segs + '</div><div class="comp-legend">' + legend + "</div></section>";
   }
 
+  // Main vs subagent (sidechain) spend — surfaced prominently because subagent
+  // runs are easy to overlook yet can dominate a session (parallel workers).
+  function kindSplit(s) {
+    var bk = s.byKind || [];
+    var find = function (k) { return bk.filter(function (x) { return x.key === k; })[0] || { costUsd: 0, runs: 0 }; };
+    var main = find("main"), sub = find("subagent");
+    var total = (Number(main.costUsd) || 0) + (Number(sub.costUsd) || 0);
+    if (total <= 0) return "";
+    var pct = function (v) { return (100 * v / total).toFixed(0) + "%"; };
+    var segs =
+      '<div class="comp-seg" style="width:' + (100 * main.costUsd / total) + '%;background:var(--accent)" title="main ' + fmtUsd(main.costUsd) + '"></div>' +
+      '<div class="comp-seg" style="width:' + (100 * sub.costUsd / total) + '%;background:var(--accent-3)" title="subagent ' + fmtUsd(sub.costUsd) + '"></div>';
+    var legend =
+      '<span class="leg"><span class="sw" style="background:var(--accent)"></span>main <b>' + fmtUsd(main.costUsd) + "</b> · " + fmtInt(main.runs) + " runs</span>" +
+      '<span class="leg"><span class="sw" style="background:var(--accent-3)"></span>subagent <b>' + fmtUsd(sub.costUsd) + "</b> · " + fmtInt(sub.runs) + " runs · " + pct(sub.costUsd) + " of spend</span>";
+    return '<section class="block"><div class="block-head"><h2>Main vs subagent</h2><span class="meta">sub-agents &amp; parallel workers</span></div>' +
+      '<div class="comp-bar">' + segs + '</div><div class="comp-legend">' + legend + "</div></section>";
+  }
+
   function barsHtml(rows) {
     if (!rows || !rows.length) return '<p class="live-empty">No data.</p>';
     var max = rows.reduce(function (m, r) { return Math.max(m, r.costUsd); }, 0) || 1;
@@ -392,7 +411,7 @@
       ? '<div class="amber">No pricing for: ' + s.unpricedModels.map(esc).join(", ") + ". Shown as $0."
       : "";
     if (amber) amber += "</div>";
-    app.innerHTML = banner + kpis(s) + amber + commits(s) + composition(s) +
+    app.innerHTML = banner + kpis(s) + kindSplit(s) + amber + commits(s) + composition(s) +
       '<div class="cols"><div>' + breakdown(s) + "</div><div>" + trend(s) + "</div></div>" +
       '<div class="cols"><div>' + sessions(s) + "</div><div>" + livePanel() + "</div></div>";
 

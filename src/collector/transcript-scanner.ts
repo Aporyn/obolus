@@ -1,4 +1,5 @@
 import { createReadStream } from 'node:fs';
+import type { Dirent } from 'node:fs';
 import { readdir } from 'node:fs/promises';
 import { createInterface } from 'node:readline';
 import { join } from 'node:path';
@@ -128,6 +129,31 @@ async function readFileEvents(path: string, out: RunEvent[], seen: Set<string>):
 }
 
 /**
+ * Recursively collect every `*.jsonl` file under `dir` (any depth). Claude Code
+ * nests subagent transcripts under `<projectDir>/<sessionId>/subagents/**`, so a
+ * single-level listing misses all subagent spend — this walk descends into them.
+ * Returns [] when `dir` is unreadable; reads file names only, never content.
+ */
+export async function listJsonlFiles(dir: string): Promise<string[]> {
+  let entries: Dirent[];
+  try {
+    entries = await readdir(dir, { withFileTypes: true });
+  } catch {
+    return [];
+  }
+  const out: string[] = [];
+  for (const entry of entries) {
+    const full = join(dir, entry.name);
+    if (entry.isDirectory()) {
+      out.push(...(await listJsonlFiles(full)));
+    } else if (entry.isFile() && entry.name.endsWith('.jsonl')) {
+      out.push(full);
+    }
+  }
+  return out;
+}
+
+/**
  * Scan all local Claude Code transcripts and return de-duplicated run events.
  * Reads only metadata; never returns prompt or code content.
  */
@@ -142,15 +168,8 @@ export async function scanTranscripts(rootDir: string = claudeProjectsDir()): Pr
   const events: RunEvent[] = [];
   const seen = new Set<string>();
   for (const dir of projectDirs) {
-    const projectPath = join(rootDir, dir);
-    let files: string[];
-    try {
-      files = (await readdir(projectPath)).filter((f) => f.endsWith('.jsonl'));
-    } catch {
-      continue;
-    }
-    for (const file of files) {
-      await readFileEvents(join(projectPath, file), events, seen);
+    for (const file of await listJsonlFiles(join(rootDir, dir))) {
+      await readFileEvents(file, events, seen);
     }
   }
   return events;

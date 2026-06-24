@@ -5,7 +5,7 @@ import { ANTHROPIC_PRICING } from '../pricing/pricing-table.js';
 import { priceRun } from '../pricing/cost.js';
 import { claudeProjectsDir } from './paths.js';
 import { currentCommit } from './git.js';
-import { parseRunLine } from './transcript-scanner.js';
+import { listJsonlFiles, parseRunLine } from './transcript-scanner.js';
 
 /** A run observed live: the event plus its computed cost and commit. */
 export interface LiveRun {
@@ -51,14 +51,11 @@ async function listTranscripts(root: string): Promise<string[]> {
   } catch {
     return [];
   }
+  // Each project dir may nest subagent transcripts under <sessionId>/subagents/**,
+  // so descend recursively rather than listing one level (see listJsonlFiles).
   const files: string[] = [];
   for (const dir of dirs) {
-    try {
-      const inner = await readdir(join(root, dir));
-      for (const file of inner) if (file.endsWith('.jsonl')) files.push(join(root, dir, file));
-    } catch {
-      /* skip unreadable dir */
-    }
+    files.push(...(await listJsonlFiles(join(root, dir))));
   }
   return files;
 }
