@@ -74,6 +74,28 @@ public final class SummaryStore: ObservableObject {
         }
     }
 
+    /// Build the `/api/summary` URL for a timeframe (testable; pure).
+    public nonisolated static func summaryURL(base: URL, timeframe: Timeframe) -> URL {
+        let endpoint = base.appendingPathComponent("api/summary")
+        guard let since = timeframe.sinceParam else { return endpoint }
+        var comps = URLComponents(url: endpoint, resolvingAgainstBaseURL: false)
+        comps?.queryItems = [URLQueryItem(name: "since", value: since)]
+        return comps?.url ?? endpoint
+    }
+
+    /// One-shot windowed history fetch for the dashboard window. Independent of the popup's
+    /// all-time `summary`/poll, so changing the dashboard range never starves the popup.
+    public func fetchSummary(timeframe: Timeframe) async -> ScanSummary? {
+        guard let base = baseURL else { return nil }
+        do {
+            let (data, response) = try await session.data(from: Self.summaryURL(base: base, timeframe: timeframe))
+            guard (response as? HTTPURLResponse)?.statusCode == 200 else { return nil }
+            return try JSONDecoder().decode(ScanSummary.self, from: data)
+        } catch {
+            return nil
+        }
+    }
+
     private func startRefreshTimer() {
         refreshTimer?.invalidate()
         let timer = Timer(timeInterval: refreshInterval, repeats: true) { [weak self] _ in
