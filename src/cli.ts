@@ -1,10 +1,11 @@
-import { scanTranscripts } from './collector/transcript-scanner.js';
+import { scanAll } from './collector/scan-all.js';
 import { runWatch } from './collector/watch.js';
 import { defaultGitHistory } from './collector/git-history.js';
 import { runServe } from './dashboard/serve.js';
 import { writeLedger } from './ledger/ledger.js';
 import { readLiveRecords } from './ledger/live-ledger.js';
 import { ANTHROPIC_PRICING } from './pricing/pricing-table.js';
+import { defaultPricingFor } from './pricing/registry.js';
 import { summarize } from './report/aggregate.js';
 import { resolveAttribution } from './report/commit-resolution.js';
 import { filterEvents } from './report/filter.js';
@@ -124,7 +125,7 @@ function printHelp(): void {
   console.log(`obolus — observability for AI coding-agent spend
 
 Usage:
-  obolus scan [options]   Scan local Claude Code history; show attributed spend
+  obolus scan [options]   Scan local Claude Code + Codex history; show attributed spend
   obolus watch            Live-monitor spend as runs happen, stamped with commit (Ctrl+C to stop)
   obolus serve [options]  Local web dashboard at http://localhost:4317, updates live (Ctrl+C to stop)
   obolus help             Show this help
@@ -160,10 +161,10 @@ function resolveCutoff(label: string, raw: string | null): string | null {
 
 async function runScan(rawArgs: readonly string[]): Promise<void> {
   const args = parseScanArgs(rawArgs);
-  const events = await scanTranscripts();
+  const events = await scanAll();
 
   // The ledger always records the full history; the report applies the view filters.
-  const fullSummary = summarize(events, ANTHROPIC_PRICING);
+  const fullSummary = summarize(events, defaultPricingFor);
 
   const sinceIso = resolveCutoff('--since', args.since);
   const untilIso = resolveCutoff('--until', args.until);
@@ -181,7 +182,7 @@ async function runScan(rawArgs: readonly string[]): Promise<void> {
   const attribution = needAttribution
     ? resolveAttribution(view, await readLiveRecords(), defaultGitHistory)
     : undefined;
-  const summary = summarize(view, ANTHROPIC_PRICING, attribution ? { attribution } : {});
+  const summary = summarize(view, defaultPricingFor, attribution ? { attribution } : {});
 
   if (args.json) {
     console.log(

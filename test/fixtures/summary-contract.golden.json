@@ -1,0 +1,462 @@
+{
+  "totalRuns": 3,
+  "totalTokens": 1500,
+  "totalCostUsd": 12.5,
+  "composition": {
+    "inputUsd": 1,
+    "outputUsd": 2,
+    "cacheReadUsd": 4,
+    "cacheWriteUsd": 5,
+    "serverToolUsd": 0.5
+  },
+  "unpricedModels": [],
+  "estimatedModels": [
+    "claude-fable-5"
+  ],
+  "byRepo": [
+    {
+      "key": "obolus",
+      "runs": 3,
+      "inputTokens": 100,
+      "outputTokens": 200,
+      "cacheTokens": 1200,
+      "totalTokens": 1500,
+      "costUsd": 12.5,
+      "hasUnpriced": false,
+      "hasEstimated": true
+    }
+  ],
+  "byModel": [
+    {
+      "key": "claude-opus-4-8",
+      "runs": 3,
+      "inputTokens": 100,
+      "outputTokens": 200,
+      "cacheTokens": 1200,
+      "totalTokens": 1500,
+      "costUsd": 12.5,
+      "hasUnpriced": false,
+      "hasEstimated": true
+    }
+  ],
+  "byBranch": [
+    {
+      "key": "main",
+      "runs": 3,
+      "inputTokens": 100,
+      "outputTokens": 200,
+      "cacheTokens": 1200,
+      "totalTokens": 1500,
+      "costUsd": 12.5,
+      "hasUnpriced": false,
+      "hasEstimated": true
+    }
+  ],
+  "byDay": [
+    {
+      "key": "2026-06-23",
+      "runs": 2,
+      "inputTokens": 60,
+      "outputTokens": 120,
+      "cacheTokens": 720,
+      "totalTokens": 900,
+      "costUsd": 9,
+      "hasUnpriced": false,
+      "hasEstimated": false
+    }
+  ],
+  "byWeek": [
+    {
+      "key": "2026-W26",
+      "runs": 3,
+      "inputTokens": 100,
+      "outputTokens": 200,
+      "cacheTokens": 1200,
+      "totalTokens": 1500,
+      "costUsd": 12.5,
+      "hasUnpriced": false,
+      "hasEstimated": true
+    }
+  ],
+  "byKind": [
+    {
+      "key": "main",
+      "runs": 2,
+      "inputTokens": 60,
+      "outputTokens": 120,
+      "cacheTokens": 720,
+      "totalTokens": 900,
+      "costUsd": 9,
+      "hasUnpriced": false,
+      "hasEstimated": false
+    },
+    {
+      "key": "subagent",
+      "runs": 1,
+      "inputTokens": 40,
+      "outputTokens": 80,
+      "cacheTokens": 480,
+      "totalTokens": 600,
+      "costUsd": 3.5,
+      "hasUnpriced": false,
+      "hasEstimated": true
+    }
+  ],
+  "sessions": [
+    {
+      "key": "s1",
+      "runs": 3,
+      "inputTokens": 100,
+      "outputTokens": 200,
+      "cacheTokens": 1200,
+      "totalTokens": 1500,
+      "costUsd": 12.5,
+      "hasUnpriced": false,
+      "hasEstimated": true,
+      "repo": "obolus",
+      "branch": null,
+      "firstSeen": "2026-06-23T10:00:00Z",
+      "lastSeen": "2026-06-23T12:00:00Z"
+    }
+  ],
+  "topRuns": [
+    {
+      "repo": "obolus",
+      "branch": "main",
+      "model": "claude-opus-4-8",
+      "sessionId": "s1",
+      "timestamp": "2026-06-23T11:00:00Z",
+      "costUsd": 5,
+      "totalTokens": 700,
+      "isSidechain": false
+    }
+  ],
+  "byCommit": [
+    {
+      "key": "aaaaaaaa",
+      "runs": 2,
+      "inputTokens": 50,
+      "outputTokens": 100,
+      "cacheTokens": 750,
+      "totalTokens": 900,
+      "costUsd": 9,
+      "hasUnpriced": false,
+      "hasEstimated": false,
+      "subject": "first commit",
+      "committedAt": "2026-06-23T10:00:00Z",
+      "release": "v1",
+      "exactUsd": 4,
+      "estimatedUsd": 5
+    },
+    {
+      "key": "(unattributed)",
+      "runs": 1,
+      "inputTokens": 40,
+      "outputTokens": 80,
+      "cacheTokens": 480,
+      "totalTokens": 600,
+      "costUsd": 3.5,
+      "hasUnpriced": false,
+      "hasEstimated": true,
+      "subject": "",
+      "committedAt": "",
+      "release": null,
+      "exactUsd": 0,
+      "estimatedUsd": 0
+    }
+  ],
+  "byRelease": [
+    {
+      "key": "v1",
+      "runs": 2,
+      "inputTokens": 50,
+      "outputTokens": 100,
+      "cacheTokens": 750,
+      "totalTokens": 900,
+      "costUsd": 9,
+      "hasUnpriced": false,
+      "hasEstimated": false,
+      "firstCommitAt": "2026-06-23T10:00:00Z",
+      "lastCommitAt": "2026-06-23T10:00:00Z",
+      "commitCount": 1,
+      "exactUsd": 4,
+      "estimatedUsd": 5
+    }
+  ],
+  "vendors": [
+    {
+      "vendor": "claude-code",
+      "rateLimit": null,
+      "summary": {
+        "totalRuns": 1,
+        "totalTokens": 600,
+        "totalCostUsd": 3.5,
+        "composition": {
+          "inputUsd": 0.5,
+          "outputUsd": 2,
+          "cacheReadUsd": 1,
+          "cacheWriteUsd": 0,
+          "serverToolUsd": 0
+        },
+        "unpricedModels": [],
+        "estimatedModels": [
+          "claude-fable-5"
+        ],
+        "byRepo": [
+          {
+            "key": "obolus",
+            "runs": 1,
+            "inputTokens": 40,
+            "outputTokens": 80,
+            "cacheTokens": 480,
+            "totalTokens": 600,
+            "costUsd": 3.5,
+            "hasUnpriced": false,
+            "hasEstimated": true
+          }
+        ],
+        "byModel": [
+          {
+            "key": "gpt-5.5",
+            "runs": 1,
+            "inputTokens": 40,
+            "outputTokens": 80,
+            "cacheTokens": 480,
+            "totalTokens": 600,
+            "costUsd": 3.5,
+            "hasUnpriced": false,
+            "hasEstimated": true
+          }
+        ],
+        "byBranch": [
+          {
+            "key": "main",
+            "runs": 1,
+            "inputTokens": 40,
+            "outputTokens": 80,
+            "cacheTokens": 480,
+            "totalTokens": 600,
+            "costUsd": 3.5,
+            "hasUnpriced": false,
+            "hasEstimated": true
+          }
+        ],
+        "byDay": [
+          {
+            "key": "2026-06-23",
+            "runs": 1,
+            "inputTokens": 40,
+            "outputTokens": 80,
+            "cacheTokens": 480,
+            "totalTokens": 600,
+            "costUsd": 3.5,
+            "hasUnpriced": false,
+            "hasEstimated": true
+          }
+        ],
+        "byWeek": [
+          {
+            "key": "2026-W26",
+            "runs": 1,
+            "inputTokens": 40,
+            "outputTokens": 80,
+            "cacheTokens": 480,
+            "totalTokens": 600,
+            "costUsd": 3.5,
+            "hasUnpriced": false,
+            "hasEstimated": true
+          }
+        ],
+        "byKind": [
+          {
+            "key": "main",
+            "runs": 1,
+            "inputTokens": 40,
+            "outputTokens": 80,
+            "cacheTokens": 480,
+            "totalTokens": 600,
+            "costUsd": 3.5,
+            "hasUnpriced": false,
+            "hasEstimated": true
+          }
+        ],
+        "sessions": [
+          {
+            "key": "cx1",
+            "runs": 1,
+            "inputTokens": 40,
+            "outputTokens": 80,
+            "cacheTokens": 480,
+            "totalTokens": 600,
+            "costUsd": 3.5,
+            "hasUnpriced": false,
+            "hasEstimated": true,
+            "repo": "obolus",
+            "branch": "main",
+            "firstSeen": "2026-06-23T11:00:00Z",
+            "lastSeen": "2026-06-23T11:30:00Z"
+          }
+        ],
+        "topRuns": [
+          {
+            "repo": "obolus",
+            "branch": "main",
+            "model": "gpt-5.5",
+            "sessionId": "cx1",
+            "timestamp": "2026-06-23T11:00:00Z",
+            "costUsd": 3.5,
+            "totalTokens": 600,
+            "isSidechain": false
+          }
+        ],
+        "byCommit": [],
+        "byRelease": [],
+        "vendors": []
+      }
+    },
+    {
+      "vendor": "codex",
+      "rateLimit": {
+        "vendor": "codex",
+        "capturedAt": "2026-06-23T11:30:00Z",
+        "primary": {
+          "usedPercent": 62,
+          "windowMinutes": 300,
+          "resetsAt": "2026-06-23T15:00:00Z"
+        },
+        "secondary": {
+          "usedPercent": 40,
+          "windowMinutes": 10080,
+          "resetsAt": "2026-06-30T00:00:00Z"
+        },
+        "planType": "team"
+      },
+      "summary": {
+        "totalRuns": 1,
+        "totalTokens": 600,
+        "totalCostUsd": 3.5,
+        "composition": {
+          "inputUsd": 0.5,
+          "outputUsd": 2,
+          "cacheReadUsd": 1,
+          "cacheWriteUsd": 0,
+          "serverToolUsd": 0
+        },
+        "unpricedModels": [],
+        "estimatedModels": [
+          "gpt-5.5"
+        ],
+        "byRepo": [
+          {
+            "key": "obolus",
+            "runs": 1,
+            "inputTokens": 40,
+            "outputTokens": 80,
+            "cacheTokens": 480,
+            "totalTokens": 600,
+            "costUsd": 3.5,
+            "hasUnpriced": false,
+            "hasEstimated": true
+          }
+        ],
+        "byModel": [
+          {
+            "key": "gpt-5.5",
+            "runs": 1,
+            "inputTokens": 40,
+            "outputTokens": 80,
+            "cacheTokens": 480,
+            "totalTokens": 600,
+            "costUsd": 3.5,
+            "hasUnpriced": false,
+            "hasEstimated": true
+          }
+        ],
+        "byBranch": [
+          {
+            "key": "main",
+            "runs": 1,
+            "inputTokens": 40,
+            "outputTokens": 80,
+            "cacheTokens": 480,
+            "totalTokens": 600,
+            "costUsd": 3.5,
+            "hasUnpriced": false,
+            "hasEstimated": true
+          }
+        ],
+        "byDay": [
+          {
+            "key": "2026-06-23",
+            "runs": 1,
+            "inputTokens": 40,
+            "outputTokens": 80,
+            "cacheTokens": 480,
+            "totalTokens": 600,
+            "costUsd": 3.5,
+            "hasUnpriced": false,
+            "hasEstimated": true
+          }
+        ],
+        "byWeek": [
+          {
+            "key": "2026-W26",
+            "runs": 1,
+            "inputTokens": 40,
+            "outputTokens": 80,
+            "cacheTokens": 480,
+            "totalTokens": 600,
+            "costUsd": 3.5,
+            "hasUnpriced": false,
+            "hasEstimated": true
+          }
+        ],
+        "byKind": [
+          {
+            "key": "main",
+            "runs": 1,
+            "inputTokens": 40,
+            "outputTokens": 80,
+            "cacheTokens": 480,
+            "totalTokens": 600,
+            "costUsd": 3.5,
+            "hasUnpriced": false,
+            "hasEstimated": true
+          }
+        ],
+        "sessions": [
+          {
+            "key": "cx1",
+            "runs": 1,
+            "inputTokens": 40,
+            "outputTokens": 80,
+            "cacheTokens": 480,
+            "totalTokens": 600,
+            "costUsd": 3.5,
+            "hasUnpriced": false,
+            "hasEstimated": true,
+            "repo": "obolus",
+            "branch": "main",
+            "firstSeen": "2026-06-23T11:00:00Z",
+            "lastSeen": "2026-06-23T11:30:00Z"
+          }
+        ],
+        "topRuns": [
+          {
+            "repo": "obolus",
+            "branch": "main",
+            "model": "gpt-5.5",
+            "sessionId": "cx1",
+            "timestamp": "2026-06-23T11:00:00Z",
+            "costUsd": 3.5,
+            "totalTokens": 600,
+            "isSidechain": false
+          }
+        ],
+        "byCommit": [],
+        "byRelease": [],
+        "vendors": []
+      }
+    }
+  ]
+}

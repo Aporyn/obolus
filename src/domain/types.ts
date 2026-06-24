@@ -97,6 +97,37 @@ export interface PricingTable {
   readonly serverTools: ServerToolRates;
 }
 
+/**
+ * One rolling rate-limit window's usage, as reported by a vendor's telemetry.
+ * Counts/percentages only — metadata, never content.
+ */
+export interface RateLimitWindow {
+  /** Percent of the window's quota consumed (0–100). */
+  readonly usedPercent: number;
+  /** Window length in minutes (~300 = 5h, ~10080 = weekly). */
+  readonly windowMinutes: number;
+  /** ISO 8601 instant the window resets, or null when not reported. */
+  readonly resetsAt: string | null;
+}
+
+/**
+ * Account-level rate-limit usage captured from a vendor's local telemetry.
+ * Codex persists this in its rollout files; Claude Code does not (its quota %
+ * is ephemeral, statusLine-only). This is NOT per-run — it is the latest
+ * snapshot seen for the vendor, carried alongside the aggregated summary.
+ */
+export interface RateLimitSnapshot {
+  readonly vendor: Vendor;
+  /** ISO 8601 timestamp of the telemetry line this snapshot came from. */
+  readonly capturedAt: string;
+  /** The short rolling window (5h for Codex). Null when not reported. */
+  readonly primary: RateLimitWindow | null;
+  /** The long rolling window (weekly for Codex). Null when not reported. */
+  readonly secondary: RateLimitWindow | null;
+  /** Plan tier as reported (e.g. 'plus', 'team'); null when unknown. */
+  readonly planType: string | null;
+}
+
 /** Computed cost for one usage record. */
 export interface CostBreakdown {
   readonly inputUsd: number;

@@ -5,6 +5,7 @@ import ObolusKit
 /// Daily spend trend (last ~21 days), drawn as native bars. History plane.
 struct DailyTrendChart: View {
     let summary: ScanSummary
+    @Environment(\.vendorPalette) private var palette
     private let windowDays = 21
 
     private var days: [GroupTotals] { summary.recentDays(windowDays) }
@@ -17,7 +18,7 @@ struct DailyTrendChart: View {
                     x: .value("Day", day.key),
                     y: .value("Cost", day.costUsd)
                 )
-                .foregroundStyle(Theme.accent2)
+                .foregroundStyle(palette.accent2)
                 .cornerRadius(2)
             }
             .chartXAxis {

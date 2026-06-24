@@ -25,10 +25,29 @@ async function fixtureRoot(): Promise<string> {
   return root;
 }
 
+/** A fresh empty dir — used to isolate the Codex root so tests don't read ~/.codex. */
+async function emptyDir(): Promise<string> {
+  return mkdtemp(join(tmpdir(), 'obolus-empty-'));
+}
+
+/** A Codex sessions root with one rollout (one token_count + a rate-limit snapshot). */
+async function codexFixtureRoot(): Promise<string> {
+  const root = await mkdtemp(join(tmpdir(), 'obolus-codex-'));
+  const day = join(root, '2026', '06', '24');
+  await mkdir(day, { recursive: true });
+  const lines = [
+    JSON.stringify({ timestamp: '2026-06-24T10:00:00Z', type: 'session_meta', payload: { session_id: 's-cx', cwd: '/x/repoB', git: { branch: 'dev' }, cli_version: '0.142.0' } }),
+    JSON.stringify({ timestamp: '2026-06-24T10:00:00Z', type: 'turn_context', payload: { model: 'gpt-5.5' } }),
+    JSON.stringify({ timestamp: '2026-06-24T10:00:01Z', type: 'event_msg', payload: { type: 'token_count', info: { last_token_usage: { input_tokens: 2000, cached_input_tokens: 500, output_tokens: 300, total_tokens: 2300 } }, rate_limits: { primary: { used_percent: 62, window_minutes: 300, resets_at: 1_780_000_000 }, secondary: { used_percent: 40, window_minutes: 10080 }, plan_type: 'team' } } }),
+  ];
+  await writeFile(join(day, 'rollout-x.jsonl'), `${lines.join('\n')}\n`, 'utf8');
+  return root;
+}
+
 describe('dashboard server', () => {
   it('serves the summary JSON and the dashboard HTML, 404s elsewhere', async () => {
     const root = await fixtureRoot();
-    const server = createDashboardServer(root);
+    const server = createDashboardServer(root, await emptyDir());
     await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
     const { port } = server.address() as AddressInfo;
     const base = `http://127.0.0.1:${port}`;
@@ -68,7 +87,7 @@ describe('dashboard server', () => {
       `${rec('2026-06-01T00:00:00Z', 's-old')}\n${rec('2026-06-20T00:00:00Z', 's-new')}\n`,
       'utf8',
     );
-    const server = createDashboardServer(root);
+    const server = createDashboardServer(root, await emptyDir());
     await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
     const { port } = server.address() as AddressInfo;
     const base = `http://127.0.0.1:${port}`;
@@ -79,6 +98,32 @@ describe('dashboard server', () => {
       const since = await fetch(`${base}/api/summary?since=2026-06-15`).then((r) => r.json());
       expect(since.totalRuns).toBe(1);
       expect(since.totalCostUsd).toBeGreaterThan(0);
+    } finally {
+      server.close();
+    }
+  });
+
+  it('exposes a per-vendor breakdown with a Codex rate-limit snapshot', async () => {
+    const server = createDashboardServer(await fixtureRoot(), await codexFixtureRoot());
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+    const { port } = server.address() as AddressInfo;
+    try {
+      const summary = await fetch(`http://127.0.0.1:${port}/api/summary`).then((r) => r.json());
+      // Combined spans both vendors (1 Claude run + 1 Codex run).
+      expect(summary.totalRuns).toBe(2);
+      expect(Array.isArray(summary.vendors)).toBe(true);
+
+      const cc = summary.vendors.find((v: { vendor: string }) => v.vendor === 'claude-code');
+      const cx = summary.vendors.find((v: { vendor: string }) => v.vendor === 'codex');
+      expect(cc?.summary.totalRuns).toBe(1);
+      expect(cx?.summary.totalRuns).toBe(1);
+      expect(cx?.summary.byRepo[0]?.key).toBe('repoB');
+
+      // Claude Code has no rate-limit telemetry; Codex carries the 5h + weekly snapshot.
+      expect(cc?.rateLimit).toBeNull();
+      expect(cx?.rateLimit?.primary?.windowMinutes).toBe(300);
+      expect(cx?.rateLimit?.secondary?.windowMinutes).toBe(10080);
+      expect(cx?.rateLimit?.planType).toBe('team');
     } finally {
       server.close();
     }
@@ -101,7 +146,7 @@ describe('dashboard server', () => {
     });
     const prev = process.env.OBOLUS_SERVE_READY_JSON;
     process.env.OBOLUS_SERVE_READY_JSON = '1';
-    const server = await runServe({ port: 0, root });
+    const server = await runServe({ port: 0, root, codexRoot: await emptyDir() });
     try {
       const { port } = server.address() as AddressInfo;
       expect(port).toBeGreaterThan(0);

@@ -1,7 +1,8 @@
 import type { RunEvent } from '../domain/types.js';
 import { appendLiveRecord } from '../ledger/live-ledger.js';
-import { claudeProjectsDir } from './paths.js';
-import { tailRuns, tokensOf } from './tailer.js';
+import { tailAll } from './tail-all.js';
+import { tokensOf } from './tailer.js';
+import type { ScanRoots } from './scan-all.js';
 
 function fmtTokens(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
@@ -24,7 +25,7 @@ function formatRun(event: RunEvent, commit: string | null, costUsd: number, runn
  *
  * Set OBOLUS_WATCH_EXIT_MS to auto-stop after N ms (used for testing/scripting).
  */
-export async function runWatch(root: string = claudeProjectsDir()): Promise<void> {
+export async function runWatch(roots: ScanRoots = {}): Promise<void> {
   let totalUsd = 0;
   let totalRuns = 0;
 
@@ -42,8 +43,8 @@ export async function runWatch(root: string = claudeProjectsDir()): Promise<void
   const exitMs = Number(process.env.OBOLUS_WATCH_EXIT_MS);
   const deadline = Number.isFinite(exitMs) && exitMs > 0 ? Date.now() + exitMs : null;
 
-  await tailRuns(
-    root,
+  await tailAll(
+    roots,
     async (run) => {
       totalUsd += run.cost.totalUsd;
       totalRuns += 1;

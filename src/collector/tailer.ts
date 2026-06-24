@@ -1,8 +1,8 @@
 import { open, readdir, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { CostBreakdown, RunEvent, TokenUsage } from '../domain/types.js';
-import { ANTHROPIC_PRICING } from '../pricing/pricing-table.js';
 import { priceRun } from '../pricing/cost.js';
+import { defaultPricingFor, type PricingResolver } from '../pricing/registry.js';
 import { claudeProjectsDir } from './paths.js';
 import { currentCommit } from './git.js';
 import { listJsonlFiles, parseRunLine } from './transcript-scanner.js';
@@ -17,6 +17,8 @@ export interface LiveRun {
 
 export interface TailOptions {
   readonly pollMs?: number;
+  /** Resolve the pricing table per vendor. Defaults to `defaultPricingFor`. */
+  readonly pricingFor?: PricingResolver;
 }
 
 export function tokensOf(u: TokenUsage): number {
@@ -88,6 +90,7 @@ export async function tailRuns(
   opts: TailOptions = {},
 ): Promise<void> {
   const pollMs = opts.pollMs ?? 2000;
+  const pricingFor = opts.pricingFor ?? defaultPricingFor;
   const offsets = new Map<string, number>();
   const seen = new Set<string>();
   for (const path of await listTranscripts(root)) {
@@ -112,7 +115,7 @@ export async function tailRuns(
         const event = parseRunLine(line);
         if (!event || seen.has(event.id)) continue;
         seen.add(event.id);
-        const cost = priceRun(event.model, event.usage, ANTHROPIC_PRICING, event.serverTools);
+        const cost = priceRun(event.model, event.usage, pricingFor(event.vendor), event.serverTools);
         const commit = currentCommit(event.repoPath);
         await onRun({ event, cost, commit, tokens: tokensOf(event.usage) });
       }

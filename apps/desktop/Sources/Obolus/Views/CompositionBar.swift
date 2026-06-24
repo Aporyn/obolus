@@ -5,6 +5,7 @@ import ObolusKit
 /// Mirrors the web dashboard's composition bar.
 struct CompositionBar: View {
     let composition: CostComposition
+    @Environment(\.vendorPalette) private var palette
 
     private struct Segment: Identifiable {
         let id = UUID()
@@ -14,12 +15,12 @@ struct CompositionBar: View {
     }
 
     private var segments: [Segment] {
-        // Monochrome blue ramp, saturated → muted — mirrors the web composition bar.
+        // Monochrome accent ramp, saturated → muted — recolored per active vendor.
         [
-            Segment(label: "Input", value: composition.inputUsd, color: Theme.accent),
-            Segment(label: "Output", value: composition.outputUsd, color: Theme.accent2),
-            Segment(label: "Cache read", value: composition.cacheReadUsd, color: Theme.accent3),
-            Segment(label: "Cache write", value: composition.cacheWriteUsd, color: Theme.accent4),
+            Segment(label: "Input", value: composition.inputUsd, color: palette.accent),
+            Segment(label: "Output", value: composition.outputUsd, color: palette.accent2),
+            Segment(label: "Cache read", value: composition.cacheReadUsd, color: palette.accent3),
+            Segment(label: "Cache write", value: composition.cacheWriteUsd, color: palette.accent4),
         ]
     }
 

@@ -8,6 +8,7 @@ struct MenuBarView: View {
     @EnvironmentObject private var serve: ServeProcess
     @EnvironmentObject private var store: SummaryStore
     @EnvironmentObject private var actions: Actions
+    @State private var codexMetric: CodexMetric = .dollars
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -44,6 +45,10 @@ struct MenuBarView: View {
     private var glanceContent: some View {
         VStack(alignment: .leading, spacing: 12) {
             todayHero
+            if codexBreakdown != nil {
+                Divider()
+                perVendor
+            }
             if store.isLive {
                 Divider()
                 liveRow
@@ -52,6 +57,59 @@ struct MenuBarView: View {
                 topRepos
             }
         }
+    }
+
+    // MARK: - Per-vendor split (both agents at once)
+
+    private func breakdown(_ key: String) -> VendorBreakdown? {
+        store.summary.vendors.first { $0.vendor == key }
+    }
+    private var codexBreakdown: VendorBreakdown? { breakdown("codex") }
+
+    /// Claude Code then Codex, in that order, for whichever the user actually uses.
+    private var orderedVendors: [VendorBreakdown] {
+        ["claude-code", "codex"].compactMap(breakdown)
+    }
+
+    /// Today's spend + (for Codex) a $ ↔ 5h quota toggle — both agents shown together.
+    private var perVendor: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("By agent").font(.caption).foregroundStyle(.secondary)
+            ForEach(orderedVendors, id: \.vendor) { vb in
+                vendorRow(vb)
+            }
+        }
+    }
+
+    @ViewBuilder private func vendorRow(_ vb: VendorBreakdown) -> some View {
+        let isCodex = vb.vendor == "codex"
+        let tint = isCodex ? Theme.codexPalette.accent : Theme.claudePalette.accent
+        HStack(spacing: 6) {
+            Circle().fill(tint).frame(width: 8, height: 8)
+            Text(isCodex ? "Codex" : "Claude Code").font(.callout)
+            if isCodex {
+                Picker("", selection: $codexMetric) {
+                    ForEach(CodexMetric.allCases) { Text($0.rawValue).tag($0) }
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                .fixedSize()
+                .controlSize(.mini)
+            }
+            Spacer()
+            Text(isCodex ? codexValue(vb) : Fmt.usd(vb.summary.costToday()))
+                .font(.callout).monospacedDigit().foregroundStyle(.secondary)
+        }
+    }
+
+    /// The Codex row's trailing value: today's $ or the 5h quota %, per the toggle.
+    private func codexValue(_ vb: VendorBreakdown) -> String {
+        guard codexMetric == .fiveH else { return Fmt.usd(vb.summary.costToday()) }
+        guard let primary = vb.rateLimit?.primary else { return "—" }
+        let reset = Quota.untilString(primary.resetsAt)
+        return reset.isEmpty
+            ? "\(Quota.percentString(primary.usedPercent)) · 5h"
+            : "\(Quota.percentString(primary.usedPercent)) · \(reset)"
     }
 
     /// Hero: today's spend (calendar day), a "vs daily average" chip, and a 7-day trend.

@@ -17,7 +17,7 @@ final class PopupMetricsTests: XCTestCase {
             composition: CostComposition(inputUsd: 0, outputUsd: 0, cacheReadUsd: 0, cacheWriteUsd: 0, serverToolUsd: 0),
             unpricedModels: [], estimatedModels: [],
             byRepo: [], byModel: [], byBranch: [], byDay: days, byWeek: [], byKind: [],
-            sessions: [], topRuns: [], byCommit: [], byRelease: []
+            sessions: [], topRuns: [], byCommit: [], byRelease: [], vendors: []
         )
     }
 
@@ -49,7 +49,7 @@ final class PopupMetricsTests: XCTestCase {
 
     func testRecentBurnSumsOnlyRunsWithinWindow() {
         func run(_ ts: String, _ cost: Double) -> LiveRunEvent {
-            LiveRunEvent(repo: "r", branch: nil, commit: nil, model: "m", costUsd: cost,
+            LiveRunEvent(vendor: nil, repo: "r", branch: nil, commit: nil, model: "m", costUsd: cost,
                          tokens: 0, timestamp: ts, isSidechain: false, runningUsd: 0, runningRuns: 0)
         }
         let feed = [
