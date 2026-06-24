@@ -7,6 +7,8 @@ import { defaultGitHistory } from '../collector/git-history.js';
 import { readLiveRecords } from '../ledger/live-ledger.js';
 import { ANTHROPIC_PRICING } from '../pricing/pricing-table.js';
 import { summarize } from '../report/aggregate.js';
+import { filterEvents } from '../report/filter.js';
+import { parseSince } from '../report/timeframe.js';
 import { resolveAttribution } from '../report/commit-resolution.js';
 import { DASHBOARD_HTML } from './html.js';
 
@@ -30,9 +32,12 @@ function openBrowser(url: string): void {
   }
 }
 
-async function sendSummary(res: ServerResponse, root: string): Promise<void> {
+async function sendSummary(res: ServerResponse, root: string, reqUrl: string): Promise<void> {
   try {
-    const events = await scanTranscripts(root);
+    const sinceRaw = new URL(reqUrl, 'http://localhost').searchParams.get('since');
+    const since = sinceRaw ? parseSince(sinceRaw) : null;
+    const allEvents = await scanTranscripts(root);
+    const events = since ? filterEvents(allEvents, { since }) : allEvents;
     const attribution = resolveAttribution(events, await readLiveRecords(), defaultGitHistory);
     const summary = summarize(events, ANTHROPIC_PRICING, { attribution });
     res.writeHead(200, { 'content-type': 'application/json; charset=utf-8' });
@@ -91,7 +96,7 @@ export function createDashboardServer(root: string = claudeProjectsDir()): Serve
       return;
     }
     if (url.startsWith('/api/summary')) {
-      void sendSummary(res, root);
+      void sendSummary(res, root, url);
       return;
     }
     if (url.startsWith('/api/events')) {

@@ -49,6 +49,41 @@ describe('dashboard server', () => {
     }
   });
 
+  it('filters the summary by ?since= cutoff', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'obolus-serve-since-'));
+    const project = join(root, 'proj');
+    await mkdir(project, { recursive: true });
+    const rec = (ts: string, sid: string) =>
+      JSON.stringify({
+        type: 'assistant',
+        uuid: sid,
+        cwd: '/x/repoA',
+        gitBranch: 'main',
+        sessionId: sid,
+        timestamp: ts,
+        message: { model: 'claude-opus-4-8', usage: { input_tokens: 1000, output_tokens: 500 } },
+      });
+    await writeFile(
+      join(project, 'a.jsonl'),
+      `${rec('2026-06-01T00:00:00Z', 's-old')}\n${rec('2026-06-20T00:00:00Z', 's-new')}\n`,
+      'utf8',
+    );
+    const server = createDashboardServer(root);
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+    const { port } = server.address() as AddressInfo;
+    const base = `http://127.0.0.1:${port}`;
+    try {
+      const all = await fetch(`${base}/api/summary`).then((r) => r.json());
+      expect(all.totalRuns).toBe(2);
+
+      const since = await fetch(`${base}/api/summary?since=2026-06-15`).then((r) => r.json());
+      expect(since.totalRuns).toBe(1);
+      expect(since.totalCostUsd).toBeGreaterThan(0);
+    } finally {
+      server.close();
+    }
+  });
+
   it('readyLine emits a parseable JSON readiness record', () => {
     const parsed = JSON.parse(readyLine(54321));
     expect(parsed).toEqual({
