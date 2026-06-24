@@ -7,6 +7,14 @@ struct DashboardView: View {
     @EnvironmentObject private var serve: ServeProcess
     @EnvironmentObject private var store: SummaryStore
 
+    @State private var timeframe: Timeframe = .week
+    @State private var windowed: ScanSummary?
+
+    /// The summary the history sections render: the windowed fetch when available, else the
+    /// store's all-time poll (shown until the first windowed fetch resolves, and as a graceful
+    /// fallback when a windowed fetch fails — its backend errors surface via backendBanner).
+    private var displayed: ScanSummary { windowed ?? store.summary }
+
     var body: some View {
         VStack(spacing: 0) {
             header
@@ -20,12 +28,12 @@ struct DashboardView: View {
                     // History plane.
                     Group {
                         historyCaption
-                        KPISection(summary: store.summary)
-                        SpendByCommitSection(summary: store.summary)
-                        CompositionBar(composition: store.summary.composition)
-                        BreakdownSection(summary: store.summary)
-                        DailyTrendChart(summary: store.summary)
-                        SessionsTable(sessions: store.summary.sessions)
+                        KPISection(summary: displayed)
+                        SpendByCommitSection(summary: displayed)
+                        CompositionBar(composition: displayed.composition)
+                        BreakdownSection(summary: displayed)
+                        DailyTrendChart(summary: displayed)
+                        SessionsTable(sessions: displayed.sessions)
                     }
 
                     Divider()
@@ -42,15 +50,25 @@ struct DashboardView: View {
                 .padding(20)
             }
         }
+        .task { windowed = await store.fetchSummary(timeframe: timeframe) }
+        .onChange(of: timeframe) { newValue in
+            Task { windowed = await store.fetchSummary(timeframe: newValue) }
+        }
     }
 
     private var header: some View {
         HStack(spacing: 12) {
             Label("Obolus", systemImage: "chart.bar.xaxis")
                 .font(.title3).fontWeight(.semibold)
+            Picker("Time range", selection: $timeframe) {
+                ForEach(Timeframe.allCases) { tf in Text(tf.label).tag(tf) }
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .frame(width: 220)
             Spacer()
             statusPill
-            Button { Task { await store.refresh() } } label: {
+            Button { Task { await store.refresh(); windowed = await store.fetchSummary(timeframe: timeframe) } } label: {
                 Image(systemName: "arrow.clockwise")
             }
             .buttonStyle(.bordered)
