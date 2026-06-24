@@ -185,6 +185,43 @@
     .flash { animation: none; }
     .bar-fill, .trend .tb { transition: none; }
   }
+
+  /* Per-vendor theming — ONLY the accent ramp changes per vendor; neutrals,
+     provenance (exact/estimated) and accent-5 stay shared. Codex keeps the
+     default blue, so only Claude Code (orange) needs overrides. Scoped to
+     [data-vendor] on .wrap, so the active tab recolors its whole subtree. */
+  .wrap[data-vendor="claude-code"] {
+    --accent: #D97757; --accent-2: #E0926E; --accent-3: #D2A893; --accent-4: #E3D2C8;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) .wrap[data-vendor="claude-code"] {
+      --accent: #E8956D; --accent-2: #E0926E; --accent-3: #B5897A; --accent-4: #5C4F47;
+    }
+  }
+  :root[data-theme="dark"] .wrap[data-vendor="claude-code"] {
+    --accent: #E8956D; --accent-2: #E0926E; --accent-3: #B5897A; --accent-4: #5C4F47;
+  }
+
+  /* Vendor tab bar */
+  .vendortabs { margin-top: 1.4rem; }
+  #vendorSeg button { white-space: nowrap; }
+  /* inline-block (not a flex child) so width/height always apply — an empty flex
+     item with only a background is stretched by WebKit. */
+  .vendor-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 0.4rem; vertical-align: middle; }
+  /* NB: modifier names must not collide with the commit-cost `.cc` class (min-width: 4.6rem). */
+  .vendor-dot.claude { background: #D97757; }
+  .vendor-dot.codex { background: #0071e3; }
+  .vendor-dot.allv { background: linear-gradient(90deg, #D97757 0 50%, #0071e3 50% 100%); }
+
+  /* Codex quota gauge ($ ↔ 5h) */
+  .gauge { height: 14px; border-radius: 999px; background: var(--hair); overflow: hidden; }
+  .gauge-fill { height: 100%; background: var(--accent); border-radius: 999px; transition: width 0.5s cubic-bezier(0.22,1,0.36,1); }
+  .gauge-meta { margin-top: 0.6rem; font-family: var(--mono); font-size: 0.95rem; color: var(--ink); }
+  .gauge-sub { margin-top: 0.3rem; font-size: 0.8rem; color: var(--faint); }
+  .gauge-money { font-family: var(--mono); font-size: 2rem; line-height: 1.1; color: var(--ink); }
+  .lr-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; margin-right: 0.35rem; vertical-align: middle; }
+  .lr-dot.claude { background: #D97757; }
+  .lr-dot.codex { background: #0071e3; }
 </style>
 </head>
 <body>
@@ -201,9 +238,15 @@
     <div class="status"><span class="seg" id="tfSeg" role="group" aria-label="Time range"><button data-tf="1d" aria-pressed="false">1d</button><!-- default pressed must match `var timeframe` in the script below --><button data-tf="7d" aria-pressed="true">7d</button><button data-tf="30d" aria-pressed="false">30d</button><button data-tf="all" aria-pressed="false">All</button></span><span class="dot" id="dot"></span><span id="statusText">connecting</span><button id="themeToggle" class="theme-toggle" aria-label="Toggle light or dark theme" title="Toggle light / dark">◐</button></div>
   </header>
 
+  <div class="vendortabs"><span class="seg" id="vendorSeg" role="group" aria-label="Vendor">
+    <button data-vendor="all" aria-pressed="true"><span class="vendor-dot allv"></span>All</button>
+    <button data-vendor="claude-code" aria-pressed="false"><span class="vendor-dot claude"></span>Claude Code</button>
+    <button data-vendor="codex" aria-pressed="false"><span class="vendor-dot codex"></span>Codex</button>
+  </span></div>
+
   <div id="app"></div>
 
-  <footer>Obolus — an Aporyn tool. Reads your local Claude Code history on this machine; nothing leaves it.</footer>
+  <footer>Obolus — an Aporyn tool. Reads your local Claude Code &amp; Codex history on this machine; nothing leaves it.</footer>
 </div>
 
 <script>
@@ -263,6 +306,21 @@
   var activeDim = "byRepo";
   var commitMode = "commit";
   var timeframe = "7d";
+  var vendor = "all";          // "all" | "claude-code" | "codex"
+  var codexMetric = "5h";      // "$" | "5h" — only the Codex tab toggles this
+
+  // The summary to render for the active vendor tab: the combined top-level for
+  // "all", else that vendor's own nested breakdown (empty if it has no history).
+  function activeSummary() {
+    if (!summary) return {};
+    if (vendor === "all") return summary;
+    var vb = (summary.vendors || []).filter(function (v) { return v.vendor === vendor; })[0];
+    return vb ? vb.summary : {};
+  }
+
+  function vendorBreakdown(name) {
+    return (summary && summary.vendors || []).filter(function (v) { return v.vendor === name; })[0] || null;
+  }
 
   function kpis(s) {
     var now = new Date();
@@ -367,8 +425,11 @@
     var body = '<div data-cm-pane="commit"' + (commitMode === "commit" ? "" : " hidden") + ">" + commitRows(s.byCommit) + "</div>" +
       '<div data-cm-pane="release"' + (commitMode === "release" ? "" : " hidden") + ">" + releaseRows(s.byRelease) + "</div>";
     var usageTotal = "$" + Math.round(Number(s.totalCostUsd) || 0).toLocaleString();
+    var usageLabel = vendor === "claude-code" ? 'claude code <code>/usage</code>'
+      : vendor === "codex" ? 'codex <code>/status</code>'
+      : 'all agents · total';
     var wedge = '<div class="wedge2">' +
-      '<div class="wcard usage"><div class="wlabel">claude code <code>/usage</code></div><div class="wbig">' + usageTotal + '</div><div class="wsub">this machine · one number</div></div>' +
+      '<div class="wcard usage"><div class="wlabel">' + usageLabel + '</div><div class="wbig">' + usageTotal + '</div><div class="wsub">this machine · one number</div></div>' +
       '<div class="wcard adds"><div class="wlabel accent">obolus adds</div><div class="wbig2">every commit · branch · release</div><div class="wsub">persistent history — what <code>/usage</code> can\'t show</div></div>' +
       "</div>";
     return '<section class="block" id="commitBlock"><div class="block-head"><h2>Spend by commit / release</h2>' + seg + "</div>" +
@@ -409,8 +470,75 @@
       '<div class="live" id="liveFeed"><p class="live-empty">Waiting for runs. Run Claude Code in another terminal and spend appears here.</p></div></section>';
   }
 
+  // Human "time until" an ISO instant, e.g. "2h 14m" / "5d 3h".
+  function untilStr(iso) {
+    if (!iso) return "";
+    var ms = new Date(iso).getTime() - Date.now();
+    if (!isFinite(ms) || ms <= 0) return "now";
+    var mins = Math.round(ms / 60000);
+    if (mins < 60) return mins + "m";
+    var h = Math.floor(mins / 60);
+    if (h < 24) return h + "h " + (mins % 60) + "m";
+    return Math.floor(h / 24) + "d " + (h % 24) + "h";
+  }
+
+  function vendorColor(name) { return name === "codex" ? "#0071e3" : name === "claude-code" ? "#D97757" : "var(--accent-3)"; }
+  function vendorLabel(name) { return name === "codex" ? "Codex" : name === "claude-code" ? "Claude Code" : name; }
+
+  // The cross-vendor split — only on the "All" tab. Each vendor keeps its own
+  // theme color so the two are distinguishable inside the combined view.
+  function vendorSplit() {
+    if (vendor !== "all") return "";
+    var vs = (summary && summary.vendors || []).filter(function (v) { return v.summary && (Number(v.summary.totalCostUsd) || 0) > 0; });
+    if (vs.length < 2) return "";
+    var total = vs.reduce(function (a, v) { return a + (Number(v.summary.totalCostUsd) || 0); }, 0) || 1;
+    var segs = vs.map(function (v) {
+      var c = Number(v.summary.totalCostUsd) || 0;
+      return '<div class="comp-seg" style="width:' + (100 * c / total) + "%;background:" + vendorColor(v.vendor) + '" title="' + vendorLabel(v.vendor) + " " + fmtUsd(c) + '"></div>';
+    }).join("");
+    var legend = vs.map(function (v) {
+      var c = Number(v.summary.totalCostUsd) || 0;
+      return '<span class="leg"><span class="sw" style="background:' + vendorColor(v.vendor) + '"></span>' + vendorLabel(v.vendor) + " <b>" + fmtUsd(c) + "</b> · " + (100 * c / total).toFixed(0) + "%</span>";
+    }).join("");
+    return '<section class="block"><div class="block-head"><h2>By vendor</h2><span class="meta">cross-agent total</span></div>' +
+      '<div class="comp-bar">' + segs + '</div><div class="comp-legend">' + legend + "</div></section>";
+  }
+
+  // Codex-only quota gauge body — toggles between $ spend (the lens Claude Code
+  // also shows) and the 5h rate-limit window % (Codex persists this; CC can't).
+  function codexGaugeBody() {
+    var vb = vendorBreakdown("codex");
+    if (!vb) return '<div class="gauge-sub">No Codex history.</div>';
+    if (codexMetric === "$") {
+      return '<div class="gauge-money">' + fmtUsd(vb.summary.totalCostUsd) + "</div>" +
+        '<div class="gauge-sub">total Codex spend · the same lens Claude Code shows</div>';
+    }
+    var rl = vb.rateLimit;
+    if (!rl || !rl.primary) return '<div class="gauge-sub">No rate-limit data yet — run Codex to populate the 5h quota.</div>';
+    var pct = Math.max(0, Math.min(100, Number(rl.primary.usedPercent) || 0));
+    var resets = untilStr(rl.primary.resetsAt);
+    var weekly = rl.secondary
+      ? "weekly: " + (Number(rl.secondary.usedPercent) || 0).toFixed(0) + "% used" +
+        (untilStr(rl.secondary.resetsAt) ? " · resets in " + untilStr(rl.secondary.resetsAt) : "") +
+        (rl.planType ? " · " + esc(rl.planType) + " plan" : "")
+      : (rl.planType ? esc(rl.planType) + " plan" : "");
+    return '<div class="gauge"><div class="gauge-fill" style="width:' + pct + '%"></div></div>' +
+      '<div class="gauge-meta">' + pct.toFixed(0) + "% of 5h window used" + (resets ? " · resets in " + resets : "") + "</div>" +
+      (weekly ? '<div class="gauge-sub">' + weekly + "</div>" : "");
+  }
+
+  function codexGauge() {
+    if (vendor !== "codex" || !vendorBreakdown("codex")) return "";
+    var seg = '<span class="seg" id="metricSeg"><button data-metric="$" aria-pressed="' + (codexMetric === "$") +
+      '">$</button><button data-metric="5h" aria-pressed="' + (codexMetric === "5h") + '">5h</button></span>';
+    return '<section class="block" id="codexGauge"><div class="block-head"><h2>Codex quota</h2>' + seg + "</div>" +
+      '<div id="metricBody">' + codexGaugeBody() + "</div></section>";
+  }
+
   function render() {
-    var s = summary;
+    var s = activeSummary();
+    var wrap = document.querySelector(".wrap");
+    if (wrap) wrap.setAttribute("data-vendor", vendor);
     var banner = sampleMode
       ? '<div class="amber">Sample data shown. No Obolus server connected. Run <code>obolus serve</code> for your real numbers.</div>'
       : "";
@@ -418,7 +546,7 @@
       ? '<div class="amber">No pricing for: ' + s.unpricedModels.map(esc).join(", ") + ". Shown as $0."
       : "";
     if (amber) amber += "</div>";
-    app.innerHTML = banner + kpis(s) + kindSplit(s) + amber + commits(s) + composition(s) +
+    app.innerHTML = banner + kpis(s) + vendorSplit() + codexGauge() + kindSplit(s) + amber + commits(s) + composition(s) +
       '<div class="cols"><div>' + breakdown(s) + "</div><div>" + trend(s) + "</div></div>" +
       '<div class="cols"><div>' + sessions(s) + "</div><div>" + livePanel() + "</div></div>";
 
@@ -445,6 +573,16 @@
         });
       });
     }
+
+    var mseg = document.getElementById("metricSeg");
+    if (mseg) {
+      mseg.addEventListener("click", function (e) {
+        var b = e.target.closest("button[data-metric]");
+        if (!b) return;
+        codexMetric = b.getAttribute("data-metric");
+        render();
+      });
+    }
   }
 
   var liveRunningUsd = 0, liveRunningRuns = 0;
@@ -459,7 +597,8 @@
     if (total) total.textContent = fmtUsd(liveRunningUsd) + " · " + liveRunningRuns + " runs";
     var t = (ev.timestamp ? new Date(ev.timestamp) : new Date());
     var time = t.toTimeString().slice(0, 8);
-    var where = ev.branch ? esc(ev.repo) + "/" + esc(ev.branch) : esc(ev.repo);
+    var vdot = ev.vendor === "codex" ? '<span class="lr-dot codex"></span>' : ev.vendor === "claude-code" ? '<span class="lr-dot claude"></span>' : "";
+    var where = vdot + (ev.branch ? esc(ev.repo) + "/" + esc(ev.branch) : esc(ev.repo));
     var cm = ev.commit ? ' <span class="cm">@' + esc(ev.commit) + "</span>" : "";
     var sub = ev.isSidechain ? ' <span class="sub">sub</span>' : "";
     var row = document.createElement("div");
@@ -506,9 +645,9 @@
       ]
     },
     events: [
-      { repo: "aporyn", branch: "main", commit: "d66e4def", model: "claude-opus-4-8", costUsd: 0.08, tokens: 11000, timestamp: new Date().toISOString(), isSidechain: false, runningUsd: 0.08, runningRuns: 1 },
-      { repo: "aporyn", branch: "main", commit: "d66e4def", model: "claude-opus-4-8", costUsd: 0.21, tokens: 28400, timestamp: new Date().toISOString(), isSidechain: false, runningUsd: 0.29, runningRuns: 2 },
-      { repo: "aporyn", branch: "main", commit: "17062cc1", model: "claude-fable-5", costUsd: 0.04, tokens: 6200, timestamp: new Date().toISOString(), isSidechain: true, runningUsd: 0.33, runningRuns: 3 }
+      { vendor: "claude-code", repo: "aporyn", branch: "main", commit: "d66e4def", model: "claude-opus-4-8", costUsd: 0.08, tokens: 11000, timestamp: new Date().toISOString(), isSidechain: false, runningUsd: 0.08, runningRuns: 1 },
+      { vendor: "codex", repo: "aporyn", branch: "main", commit: "d66e4def", model: "gpt-5.5", costUsd: 0.21, tokens: 28400, timestamp: new Date().toISOString(), isSidechain: false, runningUsd: 0.29, runningRuns: 2 },
+      { vendor: "claude-code", repo: "aporyn", branch: "main", commit: "17062cc1", model: "claude-fable-5", costUsd: 0.04, tokens: 6200, timestamp: new Date().toISOString(), isSidechain: true, runningUsd: 0.33, runningRuns: 3 }
     ]
   };
 
@@ -522,8 +661,45 @@
     setTimeout(tick, 900);
   }
 
+  function demoCodexSummary() {
+    var s = {
+      totalCostUsd: 96.4, totalRuns: 312, totalTokens: 84200000,
+      composition: { inputUsd: 12.1, outputUsd: 70.2, cacheReadUsd: 14.1, cacheWriteUsd: 0, serverToolUsd: 0 },
+      unpricedModels: [], estimatedModels: ["gpt-5.5"],
+      byRepo: [ g("aporyn", 61.2, 52000000, 190), g("obolus", 35.2, 32200000, 122) ],
+      byModel: [ g("gpt-5.5", 88.0, 78000000, 280), g("codex-auto-review", 8.4, 6200000, 32) ],
+      byBranch: [ g("main", 96.4, 84200000, 312) ],
+      byKind: [ g("main", 96.4, 84200000, 312) ],
+      byDay: [ g("2026-06-18", 10.2, 9000000, 40), g("2026-06-19", 4.1, 3500000, 18), g("2026-06-20", 18.6, 16000000, 70), g("2026-06-21", 22.4, 20000000, 80), g("2026-06-22", 41.1, 35700000, 104) ],
+      sessions: [ Object.assign(g("a1-aporyn", 61.2, 52000000, 190), { repo: "aporyn", branch: "main", firstSeen: "2026-06-22T09:00:00Z", lastSeen: "2026-06-22T18:00:00Z" }) ],
+      topRuns: [], byCommit: [], byRelease: [], vendors: []
+    };
+    return s;
+  }
+
+  function withDemoVendors(combined) {
+    if (combined.vendors) return combined;
+    var cc = Object.assign({}, combined, { vendors: [] });
+    var resetIn = function (ms) { return new Date(Date.now() + ms).toISOString(); };
+    return Object.assign({}, combined, {
+      vendors: [
+        { vendor: "claude-code", rateLimit: null, summary: cc },
+        {
+          vendor: "codex",
+          rateLimit: {
+            vendor: "codex", capturedAt: new Date().toISOString(),
+            primary: { usedPercent: 62, windowMinutes: 300, resetsAt: resetIn(2 * 3600e3 + 14 * 60e3) },
+            secondary: { usedPercent: 38, windowMinutes: 10080, resetsAt: resetIn(4 * 24 * 3600e3) },
+            planType: "plus"
+          },
+          summary: demoCodexSummary()
+        }
+      ]
+    });
+  }
+
   function useSample() {
-    summary = DEMO.summary;
+    summary = withDemoVendors(DEMO.summary);
     sampleMode = true;
     render();
     setStatus(false);
@@ -560,6 +736,19 @@
         timeframe = b.getAttribute("data-tf");
         tfSeg.querySelectorAll("button").forEach(function (x) { x.setAttribute("aria-pressed", x === b); });
         loadSummary();
+      });
+    }
+
+    // #vendorSeg also lives in the static markup — bind once; switching vendors
+    // just re-renders from the already-loaded summary (all vendors are in it).
+    var vseg = document.getElementById("vendorSeg");
+    if (vseg) {
+      vseg.addEventListener("click", function (e) {
+        var b = e.target.closest("button[data-vendor]");
+        if (!b) return;
+        vendor = b.getAttribute("data-vendor");
+        vseg.querySelectorAll("button").forEach(function (x) { x.setAttribute("aria-pressed", x === b); });
+        render();
       });
     }
 

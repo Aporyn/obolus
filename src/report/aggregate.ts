@@ -1,5 +1,13 @@
-import type { CostBreakdown, PricingTable, RunEvent, TokenUsage } from '../domain/types.js';
+import type {
+  CostBreakdown,
+  PricingTable,
+  RateLimitSnapshot,
+  RunEvent,
+  TokenUsage,
+  Vendor,
+} from '../domain/types.js';
 import { priceRun } from '../pricing/cost.js';
+import { asResolver, type PricingResolver } from '../pricing/registry.js';
 import type { Attribution } from './commit-resolution.js';
 
 /** Rolled-up totals for one grouping key (a repo, model, branch, day, ...). */
@@ -70,6 +78,17 @@ export interface ReleaseTotals extends GroupTotals {
   readonly estimatedUsd: number;
 }
 
+/**
+ * One vendor's slice of a multi-vendor scan: its own full breakdown plus its
+ * latest account-level rate-limit snapshot (Codex reports this; null otherwise).
+ * The nested `summary.vendors` is always `[]` — the breakdown is one level deep.
+ */
+export interface VendorBreakdown {
+  readonly vendor: string;
+  readonly rateLimit: RateLimitSnapshot | null;
+  readonly summary: ScanSummary;
+}
+
 /** The result of a scan: overall totals plus per-dimension breakdowns. */
 export interface ScanSummary {
   readonly totalRuns: number;
@@ -93,6 +112,12 @@ export interface ScanSummary {
   readonly byCommit: readonly CommitTotals[];
   /** Spend per release (tag / unreleased / unattributed). Empty unless attribution was resolved. */
   readonly byRelease: readonly ReleaseTotals[];
+  /**
+   * Per-vendor breakdown for the multi-vendor dashboard tabs. Populated only on
+   * the top-level summary (via `summarizeByVendor`); always `[]` on a nested
+   * per-vendor summary, so the structure is exactly one level deep.
+   */
+  readonly vendors: readonly VendorBreakdown[];
 }
 
 interface PricedRun {
@@ -380,15 +405,20 @@ export interface SummarizeOptions {
   readonly attribution?: Map<string, Attribution>;
 }
 
-/** Price every run once, then roll the events up across every dimension. */
+/**
+ * Price every run once, then roll the events up across every dimension. Accepts
+ * either a single pricing table (priced uniformly) or a per-vendor resolver, so
+ * a mixed claude-code + codex stream is priced with each vendor's own table.
+ */
 export function summarize(
   events: readonly RunEvent[],
-  table: PricingTable,
+  pricing: PricingTable | PricingResolver,
   opts: SummarizeOptions = {},
 ): ScanSummary {
+  const resolve = asResolver(pricing);
   const priced: PricedRun[] = events.map((event) => ({
     event,
-    cost: priceRun(event.model, event.usage, table, event.serverTools),
+    cost: priceRun(event.model, event.usage, resolve(event.vendor), event.serverTools),
     tokens: tokensOf(event.usage),
   }));
 
@@ -447,5 +477,47 @@ export function summarize(
     topRuns,
     byCommit: opts.attribution ? foldCommits(priced, opts.attribution) : [],
     byRelease: opts.attribution ? foldReleases(priced, opts.attribution) : [],
+    // Always present; populated only at the top level by `summarizeByVendor`.
+    vendors: [],
   };
+}
+
+/** Options for `summarizeByVendor`. */
+export interface SummarizeByVendorOptions extends SummarizeOptions {
+  /** Latest account-level rate-limit snapshot per vendor (Codex reports these). */
+  readonly rateLimits?: readonly RateLimitSnapshot[];
+}
+
+/**
+ * Summarize a multi-vendor event stream into a combined top-level summary whose
+ * `vendors` field carries each vendor's own full breakdown + rate-limit snapshot.
+ * The combined fields (totals, byRepo, …) span all vendors; each `vendors[]`
+ * entry is the same shape scoped to one vendor.
+ */
+export function summarizeByVendor(
+  events: readonly RunEvent[],
+  pricing: PricingTable | PricingResolver,
+  opts: SummarizeByVendorOptions = {},
+): ScanSummary {
+  const combined = summarize(events, pricing, opts);
+
+  const byVendor = new Map<Vendor, RunEvent[]>();
+  for (const event of events) {
+    const bucket = byVendor.get(event.vendor);
+    if (bucket) bucket.push(event);
+    else byVendor.set(event.vendor, [event]);
+  }
+
+  const rateLimitOf = new Map<string, RateLimitSnapshot>();
+  for (const snap of opts.rateLimits ?? []) rateLimitOf.set(snap.vendor, snap);
+
+  const vendors: VendorBreakdown[] = [...byVendor.entries()]
+    .map(([vendor, vendorEvents]): VendorBreakdown => ({
+      vendor,
+      rateLimit: rateLimitOf.get(vendor) ?? null,
+      summary: summarize(vendorEvents, pricing, opts),
+    }))
+    .sort((a, b) => b.summary.totalCostUsd - a.summary.totalCostUsd);
+
+  return { ...combined, vendors };
 }

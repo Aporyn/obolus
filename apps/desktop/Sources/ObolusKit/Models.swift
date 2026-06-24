@@ -108,6 +108,40 @@ public struct ReleaseTotals: Codable, Equatable, Identifiable, Sendable {
     public var isUnattributed: Bool { key == "(unattributed)" }
 }
 
+/// One rolling rate-limit window's usage. Mirrors `RateLimitWindow`.
+public struct RateLimitWindow: Codable, Equatable, Sendable {
+    /// Percent of the window's quota consumed (0–100).
+    public let usedPercent: Double
+    /// Window length in minutes (~300 = 5h, ~10080 = weekly).
+    public let windowMinutes: Int
+    /// ISO 8601 instant the window resets, or nil when not reported.
+    public let resetsAt: String?
+}
+
+/// Account-level rate-limit usage from a vendor's telemetry (Codex reports this;
+/// Claude Code does not). Mirrors `RateLimitSnapshot`.
+public struct RateLimitSnapshot: Codable, Equatable, Sendable {
+    public let vendor: String
+    public let capturedAt: String
+    /// The short rolling window (5h for Codex).
+    public let primary: RateLimitWindow?
+    /// The long rolling window (weekly for Codex).
+    public let secondary: RateLimitWindow?
+    /// Plan tier as reported (e.g. "plus", "team"); nil when unknown.
+    public let planType: String?
+}
+
+/// One vendor's slice of a multi-vendor scan: its full breakdown plus its latest
+/// rate-limit snapshot. The nested `summary.vendors` is always empty (one level
+/// deep). Mirrors `VendorBreakdown`.
+public struct VendorBreakdown: Codable, Equatable, Identifiable, Sendable {
+    public let vendor: String
+    public let rateLimit: RateLimitSnapshot?
+    public let summary: ScanSummary
+
+    public var id: String { vendor }
+}
+
 /// The full scan summary returned by `GET /api/summary`. Mirrors `ScanSummary`.
 public struct ScanSummary: Codable, Equatable, Sendable {
     public let totalRuns: Int
@@ -126,10 +160,16 @@ public struct ScanSummary: Codable, Equatable, Sendable {
     public let topRuns: [RunRef]
     public let byCommit: [CommitTotals]
     public let byRelease: [ReleaseTotals]
+    /// Per-vendor breakdown for the dashboard's vendor tabs. Populated only on the
+    /// top-level summary; always empty on a nested per-vendor summary.
+    public let vendors: [VendorBreakdown]
 }
 
 /// One live run streamed over `GET /api/events` (SSE). Mirrors the payload built in serve.ts.
 public struct LiveRunEvent: Codable, Equatable, Identifiable, Sendable {
+    /// Vendor that produced the run ("claude-code" | "codex"). Optional so the app
+    /// still decodes a stream from an older serve that predates the field.
+    public let vendor: String?
     public let repo: String
     public let branch: String?
     public let commit: String?
@@ -175,7 +215,8 @@ public extension ScanSummary {
         sessions: [],
         topRuns: [],
         byCommit: [],
-        byRelease: []
+        byRelease: [],
+        vendors: []
     )
 
     /// Cost for today (local day, matching the server's local-timezone `byDay` keys), from `byDay`.

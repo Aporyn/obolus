@@ -83,6 +83,7 @@ struct EstimateBadge: View {
 /// (7-day total), and hover-to-read the exact spend / runs for any single day.
 struct MiniSparkline: View {
     let days: [GroupTotals]
+    @Environment(\.vendorPalette) private var palette
     @State private var hoverKey: String?
 
     private var hovered: GroupTotals? { hoverKey.flatMap { k in days.first { $0.key == k } } }
@@ -142,7 +143,7 @@ struct MiniSparkline: View {
 
     /// Dim the other bars while one is hovered, so the focused day reads clearly.
     private func barColor(for key: String) -> Color {
-        guard let hovered = hoverKey else { return Theme.accent2 }
-        return hovered == key ? Theme.accent : Theme.accent2.opacity(0.3)
+        guard let hovered = hoverKey else { return palette.accent2 }
+        return hovered == key ? palette.accent : palette.accent2.opacity(0.3)
     }
 }

@@ -6,6 +6,17 @@ export function claudeProjectsDir(): string {
   return join(homedir(), '.claude', 'projects');
 }
 
+/**
+ * Root where OpenAI Codex CLI stores per-session rollout files
+ * (`~/.codex/sessions/YYYY/MM/DD/rollout-*.jsonl`). Honors `CODEX_HOME`.
+ */
+export function codexSessionsDir(): string {
+  const home = process.env.CODEX_HOME && process.env.CODEX_HOME.trim()
+    ? process.env.CODEX_HOME
+    : join(homedir(), '.codex');
+  return join(home, 'sessions');
+}
+
 /** Obolus local data dir (ledger, cache). Cross-repo, lives in the user's home. */
 export function obolusHome(): string {
   return join(homedir(), '.obolus');

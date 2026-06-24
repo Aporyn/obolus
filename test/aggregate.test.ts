@@ -164,4 +164,39 @@ describe('summarize', () => {
     expect(s.totalCostUsd).toBe(0);
     expect(s.byModel[0]?.hasUnpriced).toBe(true);
   });
+
+  it('accepts a plain PricingTable (legacy positional) unchanged', () => {
+    const s = summarize([ev()], table);
+    expect(s.totalCostUsd).toBeCloseTo(3);
+  });
+
+  it('accepts a PricingResolver and prices each event by its vendor', () => {
+    // A codex model priced only by the codex table; the claude table lacks it.
+    const codexTable: PricingTable = {
+      ...table,
+      models: { 'gpt-x': { input: 6, output: 0, cacheRead: 0, cacheWrite5m: 0, cacheWrite1h: 0, verified: true } },
+    };
+    const resolver = (vendor: RunEvent['vendor']): PricingTable =>
+      vendor === 'codex' ? codexTable : table;
+    const s = summarize([ev({ vendor: 'codex', model: 'gpt-x' })], resolver);
+    // 1M input × $6/1M = $6 (would be unpriced under the claude table).
+    expect(s.totalCostUsd).toBeCloseTo(6);
+    expect(s.unpricedModels).toHaveLength(0);
+  });
+
+  it('prices a mixed claude-code + codex array with two different tables', () => {
+    const codexTable: PricingTable = {
+      ...table,
+      models: { 'gpt-x': { input: 6, output: 0, cacheRead: 0, cacheWrite5m: 0, cacheWrite1h: 0, verified: true } },
+    };
+    const resolver = (vendor: RunEvent['vendor']): PricingTable =>
+      vendor === 'codex' ? codexTable : table;
+    const s = summarize(
+      [ev({ vendor: 'claude-code', model: 'known' }), ev({ vendor: 'codex', model: 'gpt-x' })],
+      resolver,
+    );
+    // claude: 1M × $3 = $3; codex: 1M × $6 = $6 → $9 combined, nothing unpriced.
+    expect(s.totalCostUsd).toBeCloseTo(9);
+    expect(s.unpricedModels).toHaveLength(0);
+  });
 });

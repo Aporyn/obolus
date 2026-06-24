@@ -25,7 +25,8 @@ final class ModelsTests: XCTestCase {
       ],
       "byRelease": [
         {"key":"v1","runs":2,"inputTokens":50,"outputTokens":100,"cacheTokens":150,"totalTokens":900,"costUsd":9.0,"hasUnpriced":false,"hasEstimated":false,"firstCommitAt":"2026-06-23T10:00:00Z","lastCommitAt":"2026-06-23T10:00:00Z","commitCount":1,"exactUsd":4.0,"estimatedUsd":5.0}
-      ]
+      ],
+      "vendors": []
     }
     """
 

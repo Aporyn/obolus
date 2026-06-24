@@ -6,6 +6,7 @@ import ObolusKit
 /// horizontal bar chart of the top rows. Mirrors the web dashboard's segmented breakdown.
 struct BreakdownSection: View {
     let summary: ScanSummary
+    @Environment(\.vendorPalette) private var palette
 
     enum Dimension: String, CaseIterable, Identifiable {
         case repo = "Repo"
@@ -48,7 +49,7 @@ struct BreakdownSection: View {
                         x: .value("Cost", row.costUsd),
                         y: .value(dimension.rawValue, row.key)
                     )
-                    .foregroundStyle(Theme.accent3)
+                    .foregroundStyle(palette.accent3)
                     .annotation(position: .trailing, alignment: .leading) {
                         Text(Fmt.usd(row.costUsd)).font(.caption2).monospacedDigit().foregroundStyle(.secondary)
                     }
