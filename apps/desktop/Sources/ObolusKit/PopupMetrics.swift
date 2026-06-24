@@ -19,13 +19,14 @@ public extension ScanSummary {
     func recentDailyAverage(_ count: Int = 7,
                             calendar: Calendar = ScanSummary.localCalendar,
                             now: Date = Date()) -> Double {
+        guard count > 0 else { return 0 }
         var sum = 0.0
-        for offset in 1...max(count, 1) {
+        for offset in 1...count {
             guard let day = calendar.date(byAdding: .day, value: -offset, to: now) else { continue }
             let key = Self.dayKey(for: day, calendar: calendar)
             sum += byDay.first { $0.key == key }?.costUsd ?? 0
         }
-        return sum / Double(max(count, 1))
+        return sum / Double(count)
     }
 
     /// Today's spend vs the trailing-7-day daily average, bucketed into a trend.

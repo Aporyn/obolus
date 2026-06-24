@@ -4,11 +4,7 @@ import XCTest
 final class PopupMetricsTests: XCTestCase {
     // Fixed UTC clock + calendar so day-key math is deterministic.
     private let now = ISO8601DateFormatter().date(from: "2026-06-24T12:00:00Z")!
-    private var utc: Calendar {
-        var c = Calendar(identifier: .gregorian)
-        c.timeZone = TimeZone(identifier: "UTC")!
-        return c
-    }
+    private let utc = ScanSummary.utcCalendar
 
     private func bucket(_ key: String, _ cost: Double) -> GroupTotals {
         GroupTotals(key: key, runs: 1, inputTokens: 0, outputTokens: 0, cacheTokens: 0,
