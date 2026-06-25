@@ -1,113 +1,157 @@
+<div align="center">
+
 # Obolus
 
-**Observability for AI coding-agent spend.** See what each PR, repo, and developer actually costs in
-AI coding agents — Claude Code, Codex, Cursor — without sending your code or prompts anywhere.
+**Observability for AI coding-agent spend.**
+See what every repo, branch, commit, and run actually costs across **Claude Code** and **OpenAI Codex** — without sending your code or prompts anywhere.
+
+[![npm](https://img.shields.io/npm/v/obolus?color=0071e3&label=npm)](https://www.npmjs.com/package/obolus)
+[![license](https://img.shields.io/npm/l/obolus?color=30a46c)](./LICENSE)
+![node](https://img.shields.io/node/v/obolus?color=8b949e)
+![local only](https://img.shields.io/badge/data-local%20only-30a46c)
+
+</div>
 
 > *Obolus* was the small coin the ancient Greeks placed under the tongue to pay Charon, the ferryman.
 > Obolus watches the small coins your agents spend — before they add up to a fare you never meant to pay.
 
-## Status
+<div align="center">
 
-🚧 **Early — v0 in progress.** The first release is a **local, metadata-only** collector for Claude
-Code. See the **Roadmap** below for the plan.
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/web-dashboard-all-dark.png" />
+  <img src="docs/images/web-dashboard-all.png" alt="Obolus web dashboard — spend across Claude Code and Codex, broken down by repo, model, commit and day" width="860" />
+</picture>
 
-## What it does (v0)
-
-- Reads your **local Claude Code session history** — zero config, nothing to enable, no API key
-- Breaks spend down by **repo / model / branch / day / week / session / commit / release**, plus **main vs subagent** and a **cost composition** (input / output / cache)
-- Time window (`--since` / `--until`), **top sessions** and **most-expensive runs** — cross-run history `/usage` can't give you
-- **Live `watch` mode** — stream each run's cost as it happens, tagged with the **commit** checked out at run time
-- **Local dashboard** — `obolus serve` opens a private `localhost` web view (charts, breakdowns, live feed); nothing leaves your machine
-- **Metadata only** — token counts and cost, never your code or prompts. Runs fully offline.
-
-## Install
+</div>
 
 ```sh
-npx obolus scan
+npx obolus serve --open     # local dashboard, zero config
+# or
+npx obolus scan             # one-shot terminal report
 ```
 
-That's it — one command, no setup. (For development: clone, then `pnpm install && pnpm build`.)
+No setup, no API key, no telemetry flag. Obolus reads the local session history your agents already write, and everything stays on your machine.
 
-## Usage
+---
+
+## Why
+
+Coding-agent spend is **volatile and invisible**: a single agent run is roughly **1000×** a chat turn, the *same task* can vary up to **30×** run-to-run, and models routinely underestimate their own cost. Native `/usage` shows you *one number for this machine* — not which repo, branch, commit, or run burned it, and not across vendors.
+
+Obolus makes that spend legible: **cross-run, per-repo / branch / commit / day history**, split by vendor, that `/usage` can't give you.
+
+---
+
+## Three ways to see it
+
+### 🖥️ Menu-bar app
+
+A native macOS menu-bar app. The popup leads with **today vs. your daily average** and a 7-day trend whose bars are **stacked by vendor** — Claude Code in clay-orange, Codex in blue — so you read the *proportion* at a glance, not a flat sum. Codex carries a one-tap **`$ ↔ 5h`** toggle for its rolling rate-limit quota (which Claude Code doesn't expose).
+
+<div align="center">
+  <img src="docs/images/app-popup.png" alt="Obolus menu-bar popup — today's spend, vendor-stacked 7-day trend, per-agent split, Codex $ / 5h toggle" width="320" />
+  &nbsp;&nbsp;&nbsp;
+  <img src="docs/images/app-dashboard.png" alt="Obolus dashboard window — full per-vendor breakdown with vendor tabs" width="500" />
+</div>
+
+### 🌐 Web dashboard — `obolus serve`
+
+A private dashboard bound to `127.0.0.1` — **nothing leaves your machine**. It reads your history and, while it runs, tails your active sessions itself, so the view stays live as you work. Switch between **All · Claude Code · Codex** tabs; each vendor carries its own accent, and Codex adds a rolling **5h / weekly quota** gauge.
+
+<div align="center">
+  <img src="docs/images/web-dashboard-claude.png" alt="Claude Code tab — clay-orange theme" width="46%" />
+  <img src="docs/images/web-dashboard-codex.png" alt="Codex tab — blue theme with the 5h rate-limit quota gauge" width="46%" />
+</div>
+
+```sh
+obolus serve              # http://localhost:4317
+obolus serve --open       # …and open it in your browser
+obolus serve --port 8080  # pick a port
+```
+
+### ⌨️ CLI — `obolus scan`
+
+A fast terminal report when you just want the numbers. Group by repo, model, branch, day, week, main-vs-subagent, **commit**, or **release**.
+
+<div align="center">
+  <img src="docs/images/cli-scan.png" alt="obolus scan terminal output — totals, cost composition, by repo, top sessions, most expensive runs" width="720" />
+</div>
 
 ```sh
 obolus scan                            # all history, grouped by repo
 obolus scan --since 7d                 # only the last 7 days
 obolus scan --by day                   # daily spend trend
+obolus scan --by commit                # spend per commit — the view /usage can't give you
 obolus scan --by kind                  # main thread vs subagent (sidechain)
 obolus scan --repo myapp --by branch   # one repo, broken down by branch
 obolus scan --model claude-opus-4-8    # only one model
-obolus scan --since 30d --until 7d     # a specific window
-obolus scan --by commit                # spend per commit — the view /usage can't give you
-obolus scan --by release               # spend per release (git tag)
-obolus scan --top 20                   # show more rows per section
 obolus scan --json                     # machine-readable output
 ```
 
 Dimensions for `--by`: `repo` · `model` · `branch` · `day` · `week` · `kind` · `commit` · `release`.
 
-## Live monitor
+#### Live monitor — `obolus watch`
 
 ```sh
 obolus watch
 ```
 
-Tails active Claude Code sessions and prints each run's cost the moment it happens — stamped with
-the **commit** checked out at run time, which the history scan can't see. Records append to
-`~/.obolus/live-ledger.jsonl` (metadata only). Ctrl+C to stop.
+Tails active sessions and prints each run's cost the moment it happens — stamped with the **commit checked out at run time**, which a history scan can't see. Records append to `~/.obolus/live-ledger.jsonl` (metadata only). `Ctrl+C` to stop.
 
-## Dashboard (web UI)
+---
+
+## Vendors
+
+| | Claude Code | OpenAI Codex |
+|---|---|---|
+| Per repo / branch / commit / day | ✅ | ✅ |
+| Main vs. subagent split | ✅ | ✅ |
+| Cost composition (input / output / cache) | ✅ | ✅ |
+| Live `watch` with commit attribution | ✅ | ✅ |
+| Rolling **5h / weekly quota** gauge | — | ✅ |
+
+Obolus joins both vendors into one vendor-neutral model, so a repo that uses both shows up under both. **Cursor is next** on the roadmap.
+
+> **Codex prices are best-effort estimates.** OpenAI's public per-model rates aren't all confirmed in the bundled rate table yet, so Codex rows are flagged *estimated*. Claude Code rates are verified.
+
+---
+
+## How it works · privacy
+
+Obolus reads the **local session transcripts your agents already write** — `~/.claude/projects/**` (Claude Code) and `~/.codex/sessions/**` (Codex) — extracts **metadata only**, and attributes it to repo / branch / commit.
+
+These are the invariants the collector holds to:
+
+- **Local & offline.** Free local mode never makes a network call. The dashboard binds to `127.0.0.1`.
+- **Metadata only.** Token counts, cost, model, repo, branch, timestamps. **Never your code or prompts.** The readers allowlist specific fields and drop everything else.
+- **Legitimate sources only.** It parses the vendors' own local files — no consumer-subscription OAuth tokens, no undocumented quota endpoints.
+- **Cost is an estimate.** `tokens × a local public-rate table`, not your actual bill. Quota percentages are best-effort.
+
+---
+
+## Install
 
 ```sh
-obolus serve              # serve at http://localhost:4317
-obolus serve --open       # …and open it in your browser
-obolus serve --port 8080  # use a different port
+npx obolus scan          # try it with no install
+npm i -g obolus          # or install the CLI globally
 ```
 
-A local web dashboard bound to `127.0.0.1` — **nothing leaves your machine**. It reads your local
-history and, while it runs, tails your active Claude Code sessions itself, so the view stays current
-as you work (no separate command needed). `Ctrl+C` to stop.
+**Menu-bar app (macOS):** build it from source — `apps/desktop/build-app.sh --bundle-runtime --install` produces `Obolus.app` (it spawns `obolus serve` as a headless data engine and renders natively). Same local tier: observe-only, metadata-only.
 
-### The interface
+### Configuration
 
-**Header** — the **Obolus** wordmark, a connection dot (grey *connecting* → green *live* once the
-stream is up), and a **light/dark toggle** (`◐`). It follows your system theme by default; click to
-override, and your choice is remembered across visits.
+| Env var | Purpose |
+|---|---|
+| `CLAUDE_CONFIG_DIR` | Override the Claude Code root (default `~/.claude`). |
+| `CODEX_HOME` | Override the Codex root (default `~/.codex`). |
+| `OBOLUS_NODE` / `OBOLUS_DIST` | (app) point the bundled serve at a dev build. |
 
-**Top to bottom:**
-
-- **KPI cards** — Estimated cost · Runs · Tokens · **Today** (today follows your machine's own clock).
-- **Spend by commit / release** — the wedge over native `/usage`. Where `/usage` shows *one number for
-  this machine*, Obolus attributes spend to **every commit, branch, and release**. Toggle
-  **Commit / Release**; each row carries a provenance dot:
-  - 🟢 **exact** — stamped live at run time by `watch`
-  - 🟠 **estimated** — reconstructed from git history
-  - ⚪ **unattributed** — work not yet committed, or no git repo
-- **Cost composition** — a proportional bar splitting spend into **input / output / cache read / cache
-  write**, so you can see where the money actually goes (cache reads usually dominate).
-- **Spend breakdown** — a bar chart you can regroup by **Repo · Model · Branch · Kind** (main vs
-  subagent) with the segmented control.
-- **Daily trend** — the last 21 days of spend; hover a bar for its date and amount.
-- **Top sessions** — your most expensive sessions, with runs, tokens, and time span.
-- **Live** — runs streaming in for the current session, with a running session total. Start Claude Code
-  in another terminal and spend shows up here in real time.
-
-Opened as a plain file with no server running, the dashboard renders **sample data** and tells you so —
-run `obolus serve` to see your real numbers.
-
-Cost is an estimate — token counts × current public rates, not your actual bill.
-
-## Why
-
-Coding-agent spend is volatile and invisible: roughly **1000×** a chat turn, up to **30×** variance
-between runs on the same task, and models underestimate their own cost. Obolus makes it legible —
-starting with what you can't get from `/usage`: cross-run, per-repo/branch/commit history.
+---
 
 ## Roadmap
 
-Local collector (v0) → server + GitHub App PR cost comments (v1-beta) → team dashboard (v1-paid) →
-Cursor/Codex + alerts (post-v1). **Open-core:** the collector is free and local; team aggregation is paid.
+Local collector (Claude Code + Codex) → Cursor support → server + GitHub App PR cost comments → team dashboard. **Open-core:** the collector + CLI + local dashboard are free and fully local; hosted team aggregation is the paid layer.
 
 ## License
 
-MIT (collector / CLI).
+MIT — collector / CLI. An [Aporyn](https://github.com/Aporyn) tool.
