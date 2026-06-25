@@ -79,15 +79,22 @@ struct EstimateBadge: View {
     }
 }
 
-/// A compact 7-day daily-cost chart for the popover: a dated x-axis, a resting readout
-/// (7-day total), and hover-to-read the exact spend / runs for any single day.
+/// A compact 7-day daily-cost chart for the popover. Each day's bar is *stacked by vendor*
+/// (Claude Code = clay-orange, Codex = blue) so the proportion reads at a glance instead of a
+/// flat sum. Resting state shows the 7-day total; hover reads back that day's per-vendor split.
 struct MiniSparkline: View {
-    let days: [GroupTotals]
-    @Environment(\.vendorPalette) private var palette
+    let days: [DailyVendorTotals]
     @State private var hoverKey: String?
 
-    private var hovered: GroupTotals? { hoverKey.flatMap { k in days.first { $0.key == k } } }
-    private var total: Double { days.reduce(0) { $0 + $1.costUsd } }
+    private var hovered: DailyVendorTotals? { hoverKey.flatMap { k in days.first { $0.key == k } } }
+    private var total: Double { days.reduce(0) { $0 + $1.totalUsd } }
+
+    /// The signature accent for a vendor (Claude Code → orange, Codex/others → blue).
+    private func color(for vendor: String) -> Color { Theme.palette(for: vendor).accent }
+
+    private static func label(for vendor: String) -> String {
+        vendor == "claude-code" ? "Claude Code" : vendor == "codex" ? "Codex" : vendor
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 3) {
@@ -98,9 +105,17 @@ struct MiniSparkline: View {
 
     @ViewBuilder private var readout: some View {
         Group {
-            if let h = hovered {
-                Text("\(Fmt.day(h.key)) · \(Fmt.usd(h.costUsd)) · \(h.runs) \(h.runs == 1 ? "run" : "runs")")
-                    .foregroundStyle(.secondary)
+            if let h = hovered, !h.slices.isEmpty {
+                HStack(spacing: 7) {
+                    Text(String(h.key.suffix(5))).foregroundStyle(.secondary) // MM-DD
+                    ForEach(h.slices) { slice in
+                        HStack(spacing: 3) {
+                            Circle().fill(color(for: slice.vendor)).frame(width: 6, height: 6)
+                            Text(Fmt.usd(slice.costUsd)).foregroundStyle(.secondary)
+                        }
+                        .help(MiniSparkline.label(for: slice.vendor))
+                    }
+                }
             } else {
                 Text("7-day total \(Fmt.usd(total)) · hover a bar for a day")
                     .foregroundStyle(.tertiary)
@@ -111,10 +126,15 @@ struct MiniSparkline: View {
     }
 
     private var chart: some View {
-        Chart(days) { day in
-            BarMark(x: .value("Day", day.key), y: .value("Cost", day.costUsd))
-                .foregroundStyle(barColor(for: day.key))
-                .cornerRadius(1.5)
+        Chart {
+            ForEach(days) { day in
+                // Marks sharing an x-category stack; Claude Code is added first → bottom segment.
+                ForEach(day.slices) { slice in
+                    BarMark(x: .value("Day", day.key), y: .value("Cost", slice.costUsd))
+                        .foregroundStyle(barColor(day: day.key, vendor: slice.vendor))
+                        .cornerRadius(1.5)
+                }
+            }
         }
         .chartYAxis(.hidden)
         .chartXAxis {
@@ -141,9 +161,10 @@ struct MiniSparkline: View {
         }
     }
 
-    /// Dim the other bars while one is hovered, so the focused day reads clearly.
-    private func barColor(for key: String) -> Color {
-        guard let hovered = hoverKey else { return palette.accent2 }
-        return hovered == key ? palette.accent : palette.accent2.opacity(0.3)
+    /// Keep each segment in its vendor's hue; dim the non-focused days while one is hovered.
+    private func barColor(day key: String, vendor: String) -> Color {
+        let base = color(for: vendor)
+        guard let hovered = hoverKey else { return base }
+        return hovered == key ? base : base.opacity(0.3)
     }
 }

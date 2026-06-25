@@ -11,14 +11,19 @@ final class PopupMetricsTests: XCTestCase {
                     totalTokens: 0, costUsd: cost, hasUnpriced: false, hasEstimated: false)
     }
 
-    private func summary(_ days: [GroupTotals]) -> ScanSummary {
+    private func summary(_ days: [GroupTotals], vendors: [VendorBreakdown] = []) -> ScanSummary {
         ScanSummary(
             totalRuns: 0, totalTokens: 0, totalCostUsd: 0,
             composition: CostComposition(inputUsd: 0, outputUsd: 0, cacheReadUsd: 0, cacheWriteUsd: 0, serverToolUsd: 0),
             unpricedModels: [], estimatedModels: [],
             byRepo: [], byModel: [], byBranch: [], byDay: days, byWeek: [], byKind: [],
-            sessions: [], topRuns: [], byCommit: [], byRelease: [], vendors: []
+            sessions: [], topRuns: [], byCommit: [], byRelease: [], vendors: vendors
         )
+    }
+
+    /// A per-vendor breakdown carrying only a `byDay` series (enough for the stacked chart).
+    private func breakdown(_ vendor: String, _ days: [GroupTotals]) -> VendorBreakdown {
+        VendorBreakdown(vendor: vendor, rateLimit: nil, summary: summary(days))
     }
 
     func testRecentDailyAverageExcludesTodayAndCountsQuietDaysAsZero() {
@@ -45,6 +50,46 @@ final class PopupMetricsTests: XCTestCase {
 
     func testTodayTrendNoBaselineWhenNoHistory() {
         XCTAssertEqual(summary([bucket("2026-06-24", 50)]).todayTrend(calendar: utc, now: now), .noBaseline)
+    }
+
+    func testRecentDaysByVendorSplitsEachDayAndKeepsVendorOrder() {
+        let cc = breakdown("claude-code", [bucket("2026-06-24", 40), bucket("2026-06-23", 10)])
+        let cx = breakdown("codex", [bucket("2026-06-24", 29), bucket("2026-06-22", 5)])
+        let s = summary([bucket("2026-06-24", 69), bucket("2026-06-23", 10), bucket("2026-06-22", 5)],
+                        vendors: [cc, cx])
+        let days = s.recentDaysByVendor(7, calendar: utc, now: now)
+
+        XCTAssertEqual(days.count, 7)
+        // 06-24: both agents, Claude Code first (bottom of the stack), then Codex.
+        let today = try! XCTUnwrap(days.last)
+        XCTAssertEqual(today.key, "2026-06-24")
+        XCTAssertEqual(today.slices.map(\.vendor), ["claude-code", "codex"])
+        XCTAssertEqual(today.slices[0].costUsd, 40, accuracy: 1e-9)
+        XCTAssertEqual(today.slices[1].costUsd, 29, accuracy: 1e-9)
+        XCTAssertEqual(today.totalUsd, 69, accuracy: 1e-9)
+        // 06-23: only Claude Code spent; 06-22: only Codex.
+        XCTAssertEqual(days.first { $0.key == "2026-06-23" }?.slices.map(\.vendor), ["claude-code"])
+        XCTAssertEqual(days.first { $0.key == "2026-06-22" }?.slices.map(\.vendor), ["codex"])
+    }
+
+    func testRecentDaysByVendorOmitsVendorsWithNoSpendAndPadsQuietDays() {
+        let cc = breakdown("claude-code", [bucket("2026-06-24", 40)])
+        let cx = breakdown("codex", [bucket("2026-06-24", 29)])
+        let s = summary([bucket("2026-06-24", 69)], vendors: [cc, cx])
+        let days = s.recentDaysByVendor(7, calendar: utc, now: now)
+        // A padded quiet day carries no slices (renders as a gap, not a zero-height stack).
+        let quiet = try! XCTUnwrap(days.first { $0.key == "2026-06-20" })
+        XCTAssertTrue(quiet.slices.isEmpty)
+        XCTAssertEqual(quiet.totalUsd, 0)
+    }
+
+    func testRecentDaysByVendorFallsBackToCombinedWhenNoBreakdown() {
+        // An older serve returns no per-vendor breakdown — collapse to a single combined slice.
+        let s = summary([bucket("2026-06-24", 12)])
+        let days = s.recentDaysByVendor(7, calendar: utc, now: now)
+        let today = try! XCTUnwrap(days.last)
+        XCTAssertEqual(today.slices.map(\.vendor), ["claude-code"])
+        XCTAssertEqual(today.totalUsd, 12, accuracy: 1e-9)
     }
 
     func testRecentBurnSumsOnlyRunsWithinWindow() {

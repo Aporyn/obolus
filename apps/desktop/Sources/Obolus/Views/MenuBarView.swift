@@ -9,6 +9,7 @@ struct MenuBarView: View {
     @EnvironmentObject private var store: SummaryStore
     @EnvironmentObject private var actions: Actions
     @State private var codexMetric: CodexMetric = .dollars
+    @Namespace private var metricHighlight
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -81,25 +82,60 @@ struct MenuBarView: View {
         }
     }
 
+    /// Fixed left columns so the toggle lines up across rows no matter the label width: a
+    /// fixed-width name column, then the toggle in its own reserved column right of the name.
+    /// The value is pushed to the trailing edge, so values right-align across rows — and the
+    /// toggle slot stays ready (and aligned) if Claude Code ever gains its own toggle.
+    private let nameColumn: CGFloat = 90
+    private let metricToggleColumn: CGFloat = 46
+
     @ViewBuilder private func vendorRow(_ vb: VendorBreakdown) -> some View {
         let isCodex = vb.vendor == "codex"
         let tint = isCodex ? Theme.codexPalette.accent : Theme.claudePalette.accent
-        HStack(spacing: 6) {
+        HStack(spacing: 8) {
             Circle().fill(tint).frame(width: 8, height: 8)
             Text(isCodex ? "Codex" : "Claude Code").font(.callout)
-            if isCodex {
-                Picker("", selection: $codexMetric) {
-                    ForEach(CodexMetric.allCases) { Text($0.rawValue).tag($0) }
-                }
-                .pickerStyle(.segmented)
-                .labelsHidden()
-                .fixedSize()
-                .controlSize(.mini)
-            }
-            Spacer()
+                .lineLimit(1)
+                .frame(width: nameColumn, alignment: .leading)
+            Group { if isCodex { metricToggle(tint: tint) } }
+                .frame(width: metricToggleColumn, alignment: .leading)
+            Spacer(minLength: 8)
             Text(isCodex ? codexValue(vb) : Fmt.usd(vb.summary.costToday()))
                 .font(.callout).monospacedDigit().foregroundStyle(.secondary)
         }
+    }
+
+    /// One button that shows *both* options ($ / 5h) so its purpose is self-evident. The active
+    /// unit is highlighted; each tap slides the highlight to the other (a 2-state flip — there is
+    /// only ever one "other" metric, so tapping anywhere simply switches).
+    private func metricToggle(tint: Color) -> some View {
+        Button {
+            withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) {
+                codexMetric = codexMetric.toggled
+            }
+        } label: {
+            HStack(spacing: 0) {
+                ForEach(CodexMetric.allCases) { option in
+                    let active = option == codexMetric
+                    Text(option.rawValue)
+                        .font(.system(size: 10, weight: .semibold)).monospacedDigit()
+                        .foregroundStyle(active ? Color.white : Color.secondary)
+                        .frame(width: 19, height: 16)
+                        .background {
+                            if active {
+                                Capsule().fill(tint)
+                                    .matchedGeometryEffect(id: "metricHighlight", in: metricHighlight)
+                            }
+                        }
+                }
+            }
+            .padding(2)
+            .background(tint.opacity(0.12), in: Capsule())
+            .overlay(Capsule().strokeBorder(tint.opacity(0.28), lineWidth: 0.5))
+            .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .help("Switch the Codex headline between $ and 5h")
     }
 
     /// The Codex row's trailing value: today's $ or the 5h quota %, per the toggle.
@@ -128,7 +164,7 @@ struct MenuBarView: View {
                 }
                 Spacer()
             }
-            MiniSparkline(days: store.summary.recentDays(7))
+            MiniSparkline(days: store.summary.recentDaysByVendor(7))
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)

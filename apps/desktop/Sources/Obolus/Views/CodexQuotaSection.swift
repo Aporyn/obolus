@@ -7,6 +7,9 @@ enum CodexMetric: String, CaseIterable, Identifiable {
     case dollars = "$"
     case fiveH = "5h"
     var id: String { rawValue }
+
+    /// The next metric for a single tap-to-cycle toggle (two states → flip).
+    var toggled: CodexMetric { self == .dollars ? .fiveH : .dollars }
 }
 
 /// Codex quota panel for the dashboard window: a `$ ↔ 5h` toggle over either the
