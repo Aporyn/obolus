@@ -153,7 +153,7 @@ export function renderSummary(
   opts: RenderOptions,
 ): string {
   const lines: string[] = [];
-  lines.push('Obolus — local AI coding-agent spend (Claude Code)');
+  lines.push('Obolus — local AI coding-agent spend (Claude Code + Codex)');
 
   const scope: string[] = [];
   if (opts.since) scope.push(`since ${day(opts.since)}`);
