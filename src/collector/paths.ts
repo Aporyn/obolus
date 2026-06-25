@@ -1,9 +1,16 @@
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 
-/** Root where Claude Code stores per-project transcripts. */
+/**
+ * Root where Claude Code stores per-project transcripts. Honors `CLAUDE_CONFIG_DIR`
+ * (the same override Claude Code itself respects), defaulting to `~/.claude`.
+ */
 export function claudeProjectsDir(): string {
-  return join(homedir(), '.claude', 'projects');
+  const configDir =
+    process.env.CLAUDE_CONFIG_DIR && process.env.CLAUDE_CONFIG_DIR.trim()
+      ? process.env.CLAUDE_CONFIG_DIR
+      : join(homedir(), '.claude');
+  return join(configDir, 'projects');
 }
 
 /**
