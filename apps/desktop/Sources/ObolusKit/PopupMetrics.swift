@@ -40,6 +40,64 @@ public extension ScanSummary {
     }
 }
 
+/// One vendor's spend on a single day — a segment of the popup's stacked daily chart.
+public struct DailyVendorSlice: Equatable, Sendable, Identifiable {
+    public let vendor: String   // "claude-code" | "codex"
+    public let costUsd: Double
+    public let runs: Int
+    public var id: String { vendor }
+}
+
+/// A single day split by vendor: the unit the stacked sparkline draws and the hover readout
+/// reports. `slices` is ordered (Claude Code first → bottom of the stack, then Codex) and holds
+/// only vendors that actually spent that day; an empty `slices` is a quiet (padded) day.
+public struct DailyVendorTotals: Equatable, Sendable, Identifiable {
+    public let key: String      // local day, "YYYY-MM-DD"
+    public let slices: [DailyVendorSlice]
+    public var totalUsd: Double { slices.reduce(0) { $0 + $1.costUsd } }
+    public var totalRuns: Int { slices.reduce(0) { $0 + $1.runs } }
+    public var id: String { key }
+}
+
+public extension ScanSummary {
+    /// The last `count` days, each split into per-vendor slices for the popup's stacked daily
+    /// chart. Vendors are taken from `vendors[]` in `order`; a vendor with no spend on a given
+    /// day is omitted. When `vendors` is empty (e.g. an older `obolus serve` predating the
+    /// per-vendor breakdown), each day collapses to one combined slice tagged `combinedVendor`
+    /// so the chart still renders. Days reuse `recentDays(_:)` so the window matches the rest of
+    /// the popup exactly (same padding, same local-day keys).
+    func recentDaysByVendor(_ count: Int,
+                            order: [String] = ["claude-code", "codex"],
+                            combinedVendor: String = "claude-code",
+                            calendar: Calendar = ScanSummary.localCalendar,
+                            now: Date = Date()) -> [DailyVendorTotals] {
+        let keys = recentDays(count, calendar: calendar, now: now).map(\.key)
+
+        // Index each present vendor's byDay once, preserving the requested order.
+        let perVendor: [(vendor: String, byKey: [String: GroupTotals])] = order.compactMap { vendor in
+            guard let vb = vendors.first(where: { $0.vendor == vendor }) else { return nil }
+            let byKey = Dictionary(vb.summary.byDay.map { ($0.key, $0) }, uniquingKeysWith: { first, _ in first })
+            return (vendor, byKey)
+        }
+
+        return keys.map { key in
+            // Fallback: no per-vendor breakdown — emit a single combined slice from `byDay`.
+            guard !perVendor.isEmpty else {
+                let g = byDay.first { $0.key == key }
+                let slices = (g.map { $0.costUsd > 0 || $0.runs > 0 } ?? false)
+                    ? [DailyVendorSlice(vendor: combinedVendor, costUsd: g!.costUsd, runs: g!.runs)]
+                    : []
+                return DailyVendorTotals(key: key, slices: slices)
+            }
+            let slices = perVendor.compactMap { pv -> DailyVendorSlice? in
+                guard let g = pv.byKey[key], g.costUsd > 0 || g.runs > 0 else { return nil }
+                return DailyVendorSlice(vendor: pv.vendor, costUsd: g.costUsd, runs: g.runs)
+            }
+            return DailyVendorTotals(key: key, slices: slices)
+        }
+    }
+}
+
 /// "Burning right now" rate for the popup's live row — anchored to *now*, not to app launch.
 public enum LiveBurn {
     private static let iso: ISO8601DateFormatter = {
